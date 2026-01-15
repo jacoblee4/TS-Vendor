@@ -8,7 +8,7 @@ var invoice_numbers = producer.invoice_numbers.toString().split(',');
 var invoice_amounts = producer.invoice_amounts.toString().split(',');
 var attachment_ids = producer.attachment_ids.toString().split(',');
 var invoice_pdf_dates = producer.invoice_pdf_dates.toString().split(',');
-var invoice_credit_variable = producer.invoice_credit_variable.toString().split(',');
+var invoice_credit_variables = producer.invoice_credit_variables.toString().split(',');
 var invoice_lines = [];
 
 for (var i = 0; i < invoice_numbers.length; i++) {
@@ -21,13 +21,8 @@ for (var i = 0; i < invoice_numbers.length; i++) {
     gr.remit_to_address = address_line_1;
     gr.invoice_number = invoice_numbers[i];
     gr.invoice_total = invoice_amounts[i];
-    gr.invoice_credit_variable = invoice_credit_variable[i];
-    
-    if (invoice_credit_variable[i] === 'credit' && invoice_pdf_dates[i]) {
-        gr.invoice_pdf_date = invoice_pdf_dates[i];
-    } else {
-        gr.invoice_pdf_date = producer.invoice_pdf_date;
-    }
+    gr.invoice_credit_variable = invoice_credit_variables[i];
+    gr.invoice_pdf_date = invoice_pdf_dates[i];
     
     var invoice_id = gr.insert();
     invoice_lines.push(invoice_id);
