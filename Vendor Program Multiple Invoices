@@ -1,28 +1,24 @@
 //HTML
 
 <h4>Invoices</h4>
-<div class="form-group" ng-repeat="row in data.rows track by $index">
-
+<div class="form-group" ng-repeat="row in data.invoice_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
-
-    <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_number != ''}"
-          title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
-          aria-hidden="false"></span>
-    <label>Invoice/Account Number</label>
-    <input type="text"  class="form-control" ng-model="row.invoice_number" ng-change="refreshVariables()"/>
+  
+  <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_number != ''}"
+        title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
+        aria-hidden="false"></span>
+  <label>Invoice/Account Number</label>
+  <input type="text" class="form-control" ng-model="row.invoice_number" ng-change="refreshVariables()"/>
+  
   <div style="margin-top:7px;">
     <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_amount != ''}"
           title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
           aria-hidden="false"></span>
     <label>Invoice/Account Amount</label>
-    <input type="text"  class="form-control" ng-model="row.invoice_amount" ng-change="refreshVariables()" ng-blur="validateCurrency(row.invoice_amount, 'invoiceAmount', row.id)"/>
+    <input type="text" class="form-control" ng-model="row.invoice_amount" ng-change="refreshVariables()" ng-blur="validateCurrency(row.invoice_amount, 'invoiceAmount', row.id, 'invoice')"/>
     <div class="error-message" ng-show="row.show_invoice_error">{{row.invoice_error}}</div>
-      </div>
-  <div style="margin-top:7px;">
-    <label>Credit Memo (if applicable)</label>
-    <input type="text" class="form-control" ng-model="row.credit_memo" ng-change="refreshVariables()" ng-blur="validateCurrency(row.credit_memo, 'creditMemo', row.id)" />
-    <div class="error-message" ng-show="row.show_credit_error">{{row.credit_error}}</div>
   </div>
+  
   <div class="text-right" style="margin-top:15px;vertical-align:center;">
     <button class="panel-button sp-attachment-add btn btn-link attachment-btn"
             ng-click="setCurrentID(row.id, $event);">
@@ -32,11 +28,55 @@
         <span class="badge badge-error" ng-if="row.attachmentCount > 0">{{row.attachmentCount}}</span>
       </span>
     </button>
-    <button class="btn btn-danger" ng-click="deleteRow($index, row.id)" ng-if="$index > 0">Delete</button>
+    <button class="btn btn-danger" ng-click="deleteRow($index, row.id, 'invoice')" ng-if="$index > 0">Delete</button>
   </div>
 </div>
-<button class='btn btn-primary' id='Add' ng-click="addRow()">Add Invoice/Account</button>
+<button class='btn btn-primary' id='Add' ng-click="addRow('invoice')">Add Invoice/Account</button>
 
+<h4 style="margin-top:30px;">Credits</h4>
+<div class="form-group" ng-repeat="row in data.credit_rows track by $index">
+  <hr style="border-width: 1px;" ng-if="$index > 0">
+  
+  <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
+        title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
+        aria-hidden="false"></span>
+  <label>Date on PDF (Invoice Date)</label>
+  <input type="text" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()" placeholder="MM/DD/YYYY"/>
+  
+  <div style="margin-top:7px;">
+    <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_number != ''}"
+          title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
+          aria-hidden="false"></span>
+    <label>Credit Memo Invoice/Account Number</label>
+    <input type="text" class="form-control" ng-model="row.invoice_number" ng-change="refreshVariables()"/>
+  </div>
+  
+  <div style="margin-top:7px;">
+    <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_amount != ''}"
+          title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
+          aria-hidden="false"></span>
+    <label>Credit Memo Amount (must be negative)</label>
+    <input type="text" class="form-control" ng-model="row.invoice_amount" ng-change="refreshVariables()" ng-blur="validateCurrency(row.invoice_amount, 'invoiceAmount', row.id, 'credit')"/>
+    <div class="error-message" ng-show="row.show_invoice_error">{{row.invoice_error}}</div>
+  </div>
+  
+  <div class="text-right" style="margin-top:15px;vertical-align:center;">
+    <button class="panel-button sp-attachment-add btn btn-link attachment-btn"
+            ng-click="setCurrentID(row.id, $event);">
+      <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.attachmentCount > 0}"
+            title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "></span>
+      <span class="glyphicon glyphicon-paperclip">
+        <span class="badge badge-error" ng-if="row.attachmentCount > 0">{{row.attachmentCount}}</span>
+      </span>
+    </button>
+    <button class="btn btn-danger" ng-click="deleteRow($index, row.id, 'credit')" ng-if="data.credit_rows.length > 0">Delete</button>
+  </div>
+</div>
+<button class='btn btn-primary' id='AddCredit' ng-click="addRow('credit')">Add Credit Memo</button>
+
+<div class="error-message" ng-show="showTotalError" style="margin-top:15px; font-size: 1em;">
+  Total of invoices and credits must be positive. Current total: {{currentTotal}}
+</div>
 
 
 
@@ -127,7 +167,6 @@
         'xlsx': 'fa-file-excel-o'
     };
 
-    // Called when the user opens the attachment modal
     if (input && input.viewattachment) {
         var gr_view = new GlideRecord('sys_attachment');
         gr_view.addQuery('table_sys_id', input.viewattachment);
@@ -145,7 +184,6 @@
         data.attachments = attachments;
     }
 
-    // Called when the user deletes an attachment
     else if (input && input.deleteattachment) {
         var gr_delete = new GlideRecord('sys_attachment');
         if (gr_delete.get(input.deleteattachment)) {
@@ -153,7 +191,6 @@
         }
     }
 
-    // Called when a row is deleted
     else if (input && input.action == 'delete_row') {
         var gr_delete_multiple = new GlideRecord('sys_attachment');
         gr_delete_multiple.addQuery('table_sys_id', input.row_id);
@@ -161,24 +198,18 @@
         gr_delete_multiple.deleteMultiple();
     }
 
-    var row = {
+    var invoice_row = {
         id: uuidv4(),
         invoice_number: '',
         invoice_amount: '',
-        credit_memo: '',
         attachmentCount: 0,
-        invoice_error: 'Invalid currency format. Please correct it.',
-        credit_error: 'Invalid currency format. Please correct it.',
-        show_invoice_error: false,
-        show_credit_error: false
+        invoice_error: 'Invalid currency format or must be positive.',
+        show_invoice_error: false
     };
 
-    data.rows = [row];
+    data.invoice_rows = [invoice_row];
+    data.credit_rows = [];
 
-    /**
-     * Returns the icon associated with the content type
-     * @param {String} content_type Content type of the file
-     */
     function getIcon(content_type) {
         return FILE_ICON_MAP[content_type] || "fa-file-o";
     }
@@ -197,46 +228,52 @@
 
 
 
-
 // Client Script
 api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
-    /* widget controller */
     var c = this;
     var g_form = $scope.page.g_form;
 
-    $scope.addRow = function() {
+    $scope.showTotalError = false;
+    $scope.currentTotal = 0;
+
+    $scope.addRow = function(type) {
         var row = {
             id: uuidv4(),
             invoice_number: '',
             invoice_amount: '',
-            credit_memo: '',
             attachmentCount: 0,
-            invoice_error: 'Invalid currency format. Please correct it.',
-            credit_error: 'Invalid currency format. Please correct it.',
-            show_invoice_error: false,
-            show_credit_error: false
+            invoice_error: type === 'invoice' ? 'Invalid currency format or must be positive.' : 'Invalid currency format or must be negative.',
+            show_invoice_error: false
         };
 
-        c.data.rows.push(row);
+        if (type === 'credit') {
+            row.invoice_pdf_date = '';
+        }
+
+        if (type === 'invoice') {
+            c.data.invoice_rows.push(row);
+        } else {
+            c.data.credit_rows.push(row);
+        }
         refreshMandatoryFilled();
     };
 
-    $scope.deleteRow = function(index, row_id) {
+    $scope.deleteRow = function(index, row_id, type) {
         c.server.get({
             action: 'delete_row',
             row_id: row_id
         });
 
-        c.data.rows.splice(index, 1);
+        if (type === 'invoice') {
+            c.data.invoice_rows.splice(index, 1);
+        } else {
+            c.data.credit_rows.splice(index, 1);
+        }
         $scope.refreshVariables();
     };
 
-    /**
-     * Attachment Handling
-     */
     function setupAttachmentHandler() {
         $scope.attachmentHandler = new nowAttachmentHandler(appendDone, appendError);
-
         $scope.$on('dialog.upload_too_large.show', function(e) {
             $log.error($scope.data.largeAttachmentMsg);
             spUtil.addErrorMessage($scope.data.largeAttachmentMsg);
@@ -245,7 +282,6 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
     setupAttachmentHandler();
 
-    // Watch for changes to invoice_account_toggle
     $scope.$watch(function() {
         return g_form.getValue('invoice_account_toggle');
     }, function(newValue, oldValue) {
@@ -254,7 +290,6 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         }
     });
 
-    // Watch for changes to invoice_pdf_date
     $scope.$watch(function() {
         return g_form.getValue('invoice_pdf_date');
     }, function(newValue, oldValue) {
@@ -263,36 +298,21 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         }
     });
 
-    /**
-     * Called after an attachment is added
-     */
     function appendDone() {
         _updateAttachmentCounter(c.data.current_row_id, 'increment');
         $scope.fetchAttachments(c.data.current_row_id);
     }
 
-    /**
-     * Called when the attachment handler throws an exception
-     * @param {Object} error Error
-     */
     function appendError(error) {
         console.log(error.msg + error.fileName);
     }
 
-    /**
-     * Fetches the attachments of the row and opens the attachment modal
-     * @param {String} row_id Id of the row
-     */
     $scope.setCurrentID = function(row_id, $event) {
         c.data.current_row_id = row_id;
         $scope.fetchAttachments(row_id);
         openModal('add-invoice-attachment', '');
     };
 
-    /**
-     * Fetches the attachment associated with the row
-     * @param {String} row_id Id of the row
-     */
     $scope.fetchAttachments = function(row_id) {
         c.server.get({
             viewattachment: row_id
@@ -302,21 +322,13 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         });
     };
 
-    /**
-     * Prepares the attachment handler
-     * @param {$event} $event Event
-     */
     $scope.prepareAttachment = function($event) {
-        var sizeLimit = 1024 * 1024 * 24; // 24MB
+        var sizeLimit = 1024 * 1024 * 24;
         var current_row_id = c.data.current_row_id.toString();
         $scope.attachmentHandler.setParams('x_banun_submit_a_0_new_invoice_submission', current_row_id, sizeLimit);
         $scope.attachmentHandler.openSelector($event);
     };
 
-    /**
-     * Deletes the attachment
-     * @param {String} attachment_id Sys Id of the attachment
-     */
     $scope.deleteAttachment = function(attachment_id) {
         c.server.get({
             deleteattachment: attachment_id
@@ -326,41 +338,28 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         });
     };
 
-    /**
-     * Updates the attachment counter of the row
-     * @param {String} row_id Id of the row
-     * @param {String} action increment or decrement
-     */
     function _updateAttachmentCounter(row_id, action) {
-        var rows = c.data.rows;
-        for (var i = 0; i < rows.length; i++) {
-            if (rows[i].id == row_id) {
+        var allRows = c.data.invoice_rows.concat(c.data.credit_rows);
+        for (var i = 0; i < allRows.length; i++) {
+            if (allRows[i].id == row_id) {
                 if (action == "increment") {
-                    rows[i].attachmentCount++;
+                    allRows[i].attachmentCount++;
                 }
                 if (action == "decrement") {
-                    rows[i].attachmentCount--;
+                    allRows[i].attachmentCount--;
                 }
             }
         }
         refreshMandatoryFilled();
     }
 
-    /**
-     * Open a modal and store it in c.modalInstance
-     * @param {string} template Template to load
-     * @param {string} size
-     * @param {function} callback What to do when modal is closed
-     */
     function openModal(template, size, callback) {
         callback = callback || false;
-
         c.modalInstance = $uibModal.open({
             templateUrl: template,
             scope: $scope,
             size: size
         });
-
         if (callback) {
             c.closedModal = c.modalInstance.closed.then(function() {
                 callback();
@@ -368,14 +367,10 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         }
     }
 
-    /** Close the opened modal instance */
     $scope.closeModal = function() {
         c.modalInstance.close();
     };
 
-    /**
-     * Generates a unique id
-     */
     function uuidv4() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx'.replace(/[xy]/g, function(c) {
             var r = Math.random() * 16 | 0,
@@ -385,23 +380,30 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     }
 
     function refreshMandatoryFilled() {
-        var mandatory_filled = 0;
+        var invoice_mandatory_filled = 0;
+        var credit_mandatory_filled = 0;
 
-        for (var i = 0; i < c.data.rows.length; i++) {
-            var row = c.data.rows[i];
+        for (var i = 0; i < c.data.invoice_rows.length; i++) {
+            var row = c.data.invoice_rows[i];
             if (row.invoice_number != '' && row.invoice_amount != '' && row.attachmentCount > 0) {
-                mandatory_filled++;
+                invoice_mandatory_filled++;
             }
         }
 
-        g_form.setValue('mandatory_filled', (mandatory_filled == c.data.rows.length && creditMemoFilled && invoiceAmountFilled));
+        for (var j = 0; j < c.data.credit_rows.length; j++) {
+            var creditRow = c.data.credit_rows[j];
+            if (creditRow.invoice_number != '' && creditRow.invoice_amount != '' && creditRow.invoice_pdf_date != '' && creditRow.attachmentCount > 0) {
+                credit_mandatory_filled++;
+            }
+        }
+
+        var allInvoicesFilled = (invoice_mandatory_filled == c.data.invoice_rows.length);
+        var allCreditsFilled = (c.data.credit_rows.length === 0 || credit_mandatory_filled == c.data.credit_rows.length);
+        
+        g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError));
     }
 
     $scope.refreshVariables = function() {
-        var variables = new Array(4);
-        var variable_names = ['invoice_numbers', 'invoice_amounts', 'credit_memos', 'attachment_ids'];
-        var property_names = ['invoice_number', 'invoice_amount', 'credit_memo', 'id'];
-
         var invoiceAccountToggle = g_form.getValue('invoice_account_toggle');
         var invoicePdfDate = g_form.getValue('invoice_pdf_date');
         var invoicePdfDateFormatted = '';
@@ -415,79 +417,106 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             }
         }
 
-        for (var i = 0; i < c.data.rows.length; i++) {
-            for (var j = 0; j < variables.length; j++) {
-                variables[j] = variables[j] == undefined ? '' : variables[j];
+        var invoice_numbers = '';
+        var invoice_amounts = '';
+        var attachment_ids = '';
+        var invoice_pdf_dates = '';
+        var invoice_credit_variable = '';
 
-                // Special handling for invoice_number when account_number is selected
-                if (j === 0 && invoiceAccountToggle === 'account_number' && invoicePdfDateFormatted) {
-                    // Apply formatting ONLY to the variable, not to the row data
-                    variables[j] += c.data.rows[i][property_names[j]] + '_' + invoicePdfDateFormatted + ',';
-                } else {
-                    variables[j] += c.data.rows[i][property_names[j]] + ',';
-                }
+        // Process invoice rows
+        for (var i = 0; i < c.data.invoice_rows.length; i++) {
+            var invRow = c.data.invoice_rows[i];
+            
+            if (invoiceAccountToggle === 'account_number' && invoicePdfDateFormatted) {
+                invoice_numbers += invRow.invoice_number + '_' + invoicePdfDateFormatted + ',';
+            } else {
+                invoice_numbers += invRow.invoice_number + ',';
             }
+            
+            invoice_amounts += invRow.invoice_amount + ',';
+            attachment_ids += invRow.id + ',';
+            invoice_pdf_dates += ',';
+            invoice_credit_variable += 'invoice,';
         }
 
-        for (var k = 0; k < variables.length; k++) {
-            variables[k] = variables[k].substring(0, variables[k].length - 1);
-            g_form.setValue(variable_names[k], variables[k]);
+        // Process credit rows
+        for (var j = 0; j < c.data.credit_rows.length; j++) {
+            var credRow = c.data.credit_rows[j];
+            invoice_numbers += credRow.invoice_number + ',';
+            invoice_amounts += credRow.invoice_amount + ',';
+            attachment_ids += credRow.id + ',';
+            invoice_pdf_dates += (credRow.invoice_pdf_date || '') + ',';
+            invoice_credit_variable += 'credit,';
         }
 
+        // Remove trailing commas
+        invoice_numbers = invoice_numbers.slice(0, -1);
+        invoice_amounts = invoice_amounts.slice(0, -1);
+        attachment_ids = attachment_ids.slice(0, -1);
+        invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
+        invoice_credit_variable = invoice_credit_variable.slice(0, -1);
+
+        g_form.setValue('invoice_numbers', invoice_numbers);
+        g_form.setValue('invoice_amounts', invoice_amounts);
+        g_form.setValue('attachment_ids', attachment_ids);
+        g_form.setValue('invoice_pdf_dates', invoice_pdf_dates);
+        g_form.setValue('invoice_credit_variable', invoice_credit_variable);
+
+        calculateTotal();
         refreshMandatoryFilled();
     };
 
-    $scope.creditMemoError = false;
-    $scope.invoiceAmountError = false;
-    var creditMemoFilled = true;
+    function calculateTotal() {
+        var total = 0;
+        
+        for (var i = 0; i < c.data.invoice_rows.length; i++) {
+            var amount = parseFloat(c.data.invoice_rows[i].invoice_amount.replace(/,/g, '')) || 0;
+            total += amount;
+        }
+        
+        for (var j = 0; j < c.data.credit_rows.length; j++) {
+            var creditAmount = parseFloat(c.data.credit_rows[j].invoice_amount.replace(/,/g, '')) || 0;
+            total += creditAmount;
+        }
+        
+        $scope.currentTotal = total.toFixed(2);
+        $scope.showTotalError = (total <= 0 && c.data.credit_rows.length > 0);
+    }
+
     var invoiceAmountFilled = false;
 
-    $scope.validateCurrency = function(value, field, row_id) {
-        var currencyRegex = /^(((\d{1,3},?)(\d{3},?)+|\d{1,3})|\d+)(\.\d{2})?$/;
-        var rows = c.data.rows;
+    $scope.validateCurrency = function(value, field, row_id, type) {
+        var currencyRegex = /^-?(((\d{1,3},?)(\d{3},?)+|\d{1,3})|\d+)(\.\d{2})?$/;
+        var allRows = c.data.invoice_rows.concat(c.data.credit_rows);
 
-        if (!value || currencyRegex.test(value)) {
-            if (field == 'invoiceAmount') {
-                $scope.invoiceAmountError = false;
-                invoiceAmountFilled = true;
-
-                for (var i = 0; i < rows.length; i++) {
-                    if (rows[i].id == row_id) {
-                        rows[i].show_invoice_error = false;
-                    }
-                }
-
-            } else if (field == 'creditMemo') {
-                $scope.creditMemoError = false;
-                creditMemoFilled = true;
-
-                for (var j = 0; j < rows.length; j++) {
-                    if (rows[j].id == row_id) {
-                        rows[j].show_credit_error = false;
-                    }
+        if (!value || !currencyRegex.test(value)) {
+            invoiceAmountFilled = false;
+            for (var i = 0; i < allRows.length; i++) {
+                if (allRows[i].id == row_id) {
+                    allRows[i].show_invoice_error = true;
                 }
             }
         } else {
-            if (field == 'invoiceAmount') {
-                $scope.invoiceAmountError = true;
+            var numValue = parseFloat(value.replace(/,/g, ''));
+            
+            if ((type === 'invoice' && numValue <= 0) || (type === 'credit' && numValue >= 0)) {
                 invoiceAmountFilled = false;
-
-                for (var k = 0; k < rows.length; k++) {
-                    if (rows[k].id == row_id) {
-                        rows[k].show_invoice_error = true;
+                for (var j = 0; j < allRows.length; j++) {
+                    if (allRows[j].id == row_id) {
+                        allRows[j].show_invoice_error = true;
                     }
                 }
-            } else if (field == 'creditMemo') {
-                $scope.creditMemoError = true;
-                creditMemoFilled = false;
-
-                for (var l = 0; l < rows.length; l++) {
-                    if (rows[l].id == row_id) {
-                        rows[l].show_credit_error = true;
+            } else {
+                invoiceAmountFilled = true;
+                for (var k = 0; k < allRows.length; k++) {
+                    if (allRows[k].id == row_id) {
+                        allRows[k].show_invoice_error = false;
                     }
                 }
             }
         }
+        
+        calculateTotal();
         refreshMandatoryFilled();
     };
 };
