@@ -4,11 +4,20 @@
 <div class="form-group" ng-repeat="row in data.invoice_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
-  <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_number != ''}"
+  <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
         title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
         aria-hidden="false"></span>
-  <label>Invoice/Account Number</label>
-  <input type="text" class="form-control" ng-model="row.invoice_number" ng-change="refreshVariables()"/>
+  <label>Invoice Date</label>
+  <div class="info-text">Enter the Invoice Date located on the PDF</div>
+  <input type="date" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()"/>
+  
+  <div style="margin-top:7px;">
+    <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_number != ''}"
+          title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
+          aria-hidden="false"></span>
+    <label>Invoice/Account Number</label>
+    <input type="text" class="form-control" ng-model="row.invoice_number" ng-change="refreshVariables()"/>
+  </div>
   
   <div style="margin-top:7px;">
     <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_amount != ''}"
@@ -33,15 +42,17 @@
 </div>
 <button class='btn btn-primary' id='Add' ng-click="addRow('invoice')">Add Invoice/Account</button>
 
-<h4 style="margin-top:30px;">Credits</h4>
+<hr style="border-width: 1px; margin-top: 30px; margin-bottom: 20px;">
+
+<h4>Credits</h4>
 <div class="form-group" ng-repeat="row in data.credit_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
   <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
         title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
         aria-hidden="false"></span>
-  <label>Date on PDF (Invoice Date)</label>
-  <input type="text" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()" placeholder="MM/DD/YYYY"/>
+  <label>Date on PDF</label>
+  <input type="date" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()"/>
   
   <div style="margin-top:7px;">
     <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_number != ''}"
@@ -55,7 +66,7 @@
     <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_amount != ''}"
           title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
           aria-hidden="false"></span>
-    <label>Credit Memo Amount (must be negative)</label>
+    <label>Credit Memo Amount</label>
     <input type="text" class="form-control" ng-model="row.invoice_amount" ng-change="refreshVariables()" ng-blur="validateCurrency(row.invoice_amount, 'invoiceAmount', row.id, 'credit')"/>
     <div class="error-message" ng-show="row.show_invoice_error">{{row.invoice_error}}</div>
   </div>
@@ -72,10 +83,11 @@
     <button class="btn btn-danger" ng-click="deleteRow($index, row.id, 'credit')" ng-if="data.credit_rows.length > 0">Delete</button>
   </div>
 </div>
-<button class='btn btn-primary' id='AddCredit' ng-click="addRow('credit')">Add Credit Memo</button>
+<button class='btn btn-danger' id='AddCredit' ng-click="addRow('credit')">Add Credit Memo</button>
 
-<div class="error-message" ng-show="showTotalError" style="margin-top:15px; font-size: 1em;">
-  Total of invoices and credits must be positive. Current total: {{currentTotal}}
+<div class="warning-bubble" ng-show="showTotalError">
+  <span class="glyphicon glyphicon-warning-sign" style="margin-right: 8px;"></span>
+  Total of invoices and credits must be positive. Current total: <strong>{{currentTotal}}</strong>
 </div>
 
 
@@ -122,6 +134,29 @@
     background-color: transparent;
     padding: 0 !important;
     margin: 0 !important;
+}
+
+.info-text {
+    color: #666;
+    font-size: 0.9em;
+    font-style: italic;
+    margin-bottom: 5px;
+}
+
+.warning-bubble {
+    background-color: #fcf8e3;
+    border: 1px solid #faebcc;
+    border-radius: 4px;
+    color: #8a6d3b;
+    padding: 12px 15px;
+    margin-top: 15px;
+    font-size: 1em;
+    display: flex;
+    align-items: center;
+}
+
+.warning-bubble .glyphicon {
+    color: #f0ad4e;
 }
 
 
@@ -200,6 +235,7 @@
 
     var invoice_row = {
         id: uuidv4(),
+        invoice_pdf_date: '',
         invoice_number: '',
         invoice_amount: '',
         attachmentCount: 0,
@@ -229,26 +265,24 @@
 
 
 // Client Script
+
 api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     var c = this;
     var g_form = $scope.page.g_form;
 
     $scope.showTotalError = false;
-    $scope.currentTotal = 0;
+    $scope.currentTotal = '$0.00';
 
     $scope.addRow = function(type) {
         var row = {
             id: uuidv4(),
+            invoice_pdf_date: '',
             invoice_number: '',
             invoice_amount: '',
             attachmentCount: 0,
             invoice_error: type === 'invoice' ? 'Invalid currency format or must be positive.' : 'Invalid currency format or must be negative.',
             show_invoice_error: false
         };
-
-        if (type === 'credit') {
-            row.invoice_pdf_date = '';
-        }
 
         if (type === 'invoice') {
             c.data.invoice_rows.push(row);
@@ -284,14 +318,6 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
     $scope.$watch(function() {
         return g_form.getValue('invoice_account_toggle');
-    }, function(newValue, oldValue) {
-        if (newValue !== oldValue && oldValue !== undefined) {
-            $scope.refreshVariables();
-        }
-    });
-
-    $scope.$watch(function() {
-        return g_form.getValue('invoice_pdf_date');
     }, function(newValue, oldValue) {
         if (newValue !== oldValue && oldValue !== undefined) {
             $scope.refreshVariables();
@@ -385,7 +411,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
         for (var i = 0; i < c.data.invoice_rows.length; i++) {
             var row = c.data.invoice_rows[i];
-            if (row.invoice_number != '' && row.invoice_amount != '' && row.attachmentCount > 0) {
+            if (row.invoice_pdf_date != '' && row.invoice_number != '' && row.invoice_amount != '' && row.attachmentCount > 0) {
                 invoice_mandatory_filled++;
             }
         }
@@ -405,38 +431,22 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
     $scope.refreshVariables = function() {
         var invoiceAccountToggle = g_form.getValue('invoice_account_toggle');
-        var invoicePdfDate = g_form.getValue('invoice_pdf_date');
-        var invoicePdfDateFormatted = '';
-
-        if (invoicePdfDate) {
-            var dateObj = new Date(invoicePdfDate);
-            if (!isNaN(dateObj.getTime())) {
-                var month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-                var year = dateObj.getFullYear().toString().slice(-2);
-                invoicePdfDateFormatted = month + year;
-            }
-        }
 
         var invoice_numbers = '';
         var invoice_amounts = '';
         var attachment_ids = '';
         var invoice_pdf_dates = '';
-        var invoice_credit_variable = '';
+        var invoice_credit_variables = '';
 
         // Process invoice rows
         for (var i = 0; i < c.data.invoice_rows.length; i++) {
             var invRow = c.data.invoice_rows[i];
             
-            if (invoiceAccountToggle === 'account_number' && invoicePdfDateFormatted) {
-                invoice_numbers += invRow.invoice_number + '_' + invoicePdfDateFormatted + ',';
-            } else {
-                invoice_numbers += invRow.invoice_number + ',';
-            }
-            
+            invoice_numbers += invRow.invoice_number + ',';
             invoice_amounts += invRow.invoice_amount + ',';
             attachment_ids += invRow.id + ',';
-            invoice_pdf_dates += ',';
-            invoice_credit_variable += 'invoice,';
+            invoice_pdf_dates += (invRow.invoice_pdf_date || '') + ',';
+            invoice_credit_variables += 'invoice,';
         }
 
         // Process credit rows
@@ -446,7 +456,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             invoice_amounts += credRow.invoice_amount + ',';
             attachment_ids += credRow.id + ',';
             invoice_pdf_dates += (credRow.invoice_pdf_date || '') + ',';
-            invoice_credit_variable += 'credit,';
+            invoice_credit_variables += 'credit,';
         }
 
         // Remove trailing commas
@@ -454,13 +464,13 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         invoice_amounts = invoice_amounts.slice(0, -1);
         attachment_ids = attachment_ids.slice(0, -1);
         invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
-        invoice_credit_variable = invoice_credit_variable.slice(0, -1);
+        invoice_credit_variables = invoice_credit_variables.slice(0, -1);
 
         g_form.setValue('invoice_numbers', invoice_numbers);
         g_form.setValue('invoice_amounts', invoice_amounts);
         g_form.setValue('attachment_ids', attachment_ids);
         g_form.setValue('invoice_pdf_dates', invoice_pdf_dates);
-        g_form.setValue('invoice_credit_variable', invoice_credit_variable);
+        g_form.setValue('invoice_credit_variables', invoice_credit_variables);
 
         calculateTotal();
         refreshMandatoryFilled();
@@ -479,7 +489,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             total += creditAmount;
         }
         
-        $scope.currentTotal = total.toFixed(2);
+        $scope.currentTotal = '$' + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
         $scope.showTotalError = (total <= 0 && c.data.credit_rows.length > 0);
     }
 
