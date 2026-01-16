@@ -1,0 +1,47 @@
+Question | Name | Active | Hidden | Type | Order
+
+Invoice PDF Dates	invoice_pdf_dates	true	true	Single Line Text	
+
+Invoice_credit_varaibles	invoice_credit_varaibles	true	true	Single Line Text	
+
+Invoice Date	invoice_pdf_date	false	false	Date	0
+
+Today's Date	invoice_date	true	true	Date	100
+
+Supplier Name	supplier_name	true	false	Lookup Select Box	200
+
+Remit to Address	remit_to_address	true	false	Lookup Select Box	300
+
+Memo To Recipient	memo_to_recipient	true	false	Single Line Text	400
+
+Grand Total	grand_total	true	true	Single Line Text	887
+
+Invoice Number or Account Number	invoice_account_toggle	true	false	Select Box	893
+
+Is this a Partial Payment?	partial_pay_indicator	true	false	Yes / No	896
+
+Partial Payment Type	partialpay_type	true	false	Select Box	898
+
+Account Number	account_number	true	true	Reference	900
+
+GL number	billing_gl	true	true	Reference	1,000
+
+Coupa Invoice Numb Calc	coupa_invoice_number	true	true	Reference	1,100
+
+Requested By	requested_by	true	true	Single Line Text	1,200
+
+Supplier Number	supplier_number	true	true	Reference	1,300
+
+Invoice Number	u_invoice_number	true	false	Custom	2,000
+
+Invoice Numbers	invoice_numbers	true	false	Multi Line Text	2,100
+
+Invoice Totals	invoice_amounts	true	false	Multi Line Text	2,200
+
+Credit Memos	credit_memos	true	false	Multi Line Text	2,300
+
+Attachment IDs	attachment_ids	true	false	Multi Line Text	2,400
+
+Mandatory Filled	mandatory_filled	true	false	Single Line Text	2,500
+
+(empty)	note	true	false	Rich Text Label	3,000
