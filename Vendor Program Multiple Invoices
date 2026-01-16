@@ -426,52 +426,59 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError));
     }
 
-    $scope.refreshVariables = function() {
-        var invoiceAccountToggle = g_form.getValue('invoice_account_toggle');
+   $scope.refreshVariables = function() {
+    var invoiceAccountToggle = g_form.getValue('invoice_account_toggle');
 
-        var invoice_numbers = '';
-        var invoice_amounts = '';
-        var attachment_ids = '';
-        var invoice_pdf_dates = '';
-        var invoice_credit_variables = '';
+    var invoice_numbers = '';
+    var invoice_amounts = '';
+    var attachment_ids = '';
+    var invoice_pdf_dates = '';
+    var invoice_credit_variables = '';
 
-        // Process invoice rows
-        for (var i = 0; i < c.data.invoice_rows.length; i++) {
-            var invRow = c.data.invoice_rows[i];
-            
-            invoice_numbers += invRow.invoice_number + ',';
-            invoice_amounts += invRow.invoice_amount + ',';
-            attachment_ids += invRow.id + ',';
-            invoice_pdf_dates += (invRow.invoice_pdf_date || '') + ',';
-            invoice_credit_variables += 'invoice,';
-        }
+    // Process invoice rows
+    for (var i = 0; i < c.data.invoice_rows.length; i++) {
+        var invRow = c.data.invoice_rows[i];
+        
+        console.log('Invoice Row ' + i + ' PDF Date:', invRow.invoice_pdf_date);
+        
+        invoice_numbers += invRow.invoice_number + ',';
+        invoice_amounts += invRow.invoice_amount + ',';
+        attachment_ids += invRow.id + ',';
+        invoice_pdf_dates += (invRow.invoice_pdf_date || '') + ',';
+        invoice_credit_variables += 'invoice,';
+    }
 
-        // Process credit rows
-        for (var j = 0; j < c.data.credit_rows.length; j++) {
-            var credRow = c.data.credit_rows[j];
-            invoice_numbers += credRow.invoice_number + ',';
-            invoice_amounts += credRow.invoice_amount + ',';
-            attachment_ids += credRow.id + ',';
-            invoice_pdf_dates += (credRow.invoice_pdf_date || '') + ',';
-            invoice_credit_variables += 'credit,';
-        }
+    // Process credit rows
+    for (var j = 0; j < c.data.credit_rows.length; j++) {
+        var credRow = c.data.credit_rows[j];
+        
+        console.log('Credit Row ' + j + ' PDF Date:', credRow.invoice_pdf_date);
+        
+        invoice_numbers += credRow.invoice_number + ',';
+        invoice_amounts += credRow.invoice_amount + ',';
+        attachment_ids += credRow.id + ',';
+        invoice_pdf_dates += (credRow.invoice_pdf_date || '') + ',';
+        invoice_credit_variables += 'credit,';
+    }
 
-        // Remove trailing commas
-        invoice_numbers = invoice_numbers.slice(0, -1);
-        invoice_amounts = invoice_amounts.slice(0, -1);
-        attachment_ids = attachment_ids.slice(0, -1);
-        invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
-        invoice_credit_variables = invoice_credit_variables.slice(0, -1);
+    // Remove trailing commas
+    invoice_numbers = invoice_numbers.slice(0, -1);
+    invoice_amounts = invoice_amounts.slice(0, -1);
+    attachment_ids = attachment_ids.slice(0, -1);
+    invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
+    invoice_credit_variables = invoice_credit_variables.slice(0, -1);
 
-        g_form.setValue('invoice_numbers', invoice_numbers);
-        g_form.setValue('invoice_amounts', invoice_amounts);
-        g_form.setValue('attachment_ids', attachment_ids);
-        g_form.setValue('invoice_pdf_dates', invoice_pdf_dates);
-        g_form.setValue('invoice_credit_variables', invoice_credit_variables);
+    console.log('Final invoice_pdf_dates string:', invoice_pdf_dates);
 
-        calculateTotal();
-        refreshMandatoryFilled();
-    };
+    g_form.setValue('invoice_numbers', invoice_numbers);
+    g_form.setValue('invoice_amounts', invoice_amounts);
+    g_form.setValue('attachment_ids', attachment_ids);
+    g_form.setValue('invoice_pdf_dates', invoice_pdf_dates);
+    g_form.setValue('invoice_credit_variables', invoice_credit_variables);
+
+    calculateTotal();
+    refreshMandatoryFilled();
+};
 
     function calculateTotal() {
         var total = 0;
