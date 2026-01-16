@@ -4,12 +4,12 @@
 <div class="form-group" ng-repeat="row in data.invoice_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
-  <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
-        title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
-        aria-hidden="false"></span>
-  <label>Invoice Date</label>
-  <div class="info-text">Enter the Invoice Date located on the PDF</div>
-  <input type="date" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()"/>
+ <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
+      title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
+      aria-hidden="false"></span>
+<label>Invoice Date</label>
+<div class="info-text">Enter the Invoice Date located on the PDF (MM/DD/YYYY)</div>
+<input type="text" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()" placeholder="MM/DD/YYYY"/>
   
   <div style="margin-top:7px;">
     <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_number != ''}"
@@ -49,10 +49,11 @@
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
   <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
-        title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
-        aria-hidden="false"></span>
-  <label>Date on PDF</label>
-  <input type="date" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()"/>
+      title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
+      aria-hidden="false"></span>
+<label>Date on PDF</label>
+<div class="info-text">MM/DD/YYYY</div>
+<input type="text" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()" placeholder="MM/DD/YYYY"/>
   
   <div style="margin-top:7px;">
     <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_number != ''}"
