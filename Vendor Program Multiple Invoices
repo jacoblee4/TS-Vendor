@@ -4,12 +4,27 @@
 <div class="form-group" ng-repeat="row in data.invoice_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
- <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
-      title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
-      aria-hidden="false"></span>
-<label>Invoice Date</label>
-<div class="info-text">Enter the Invoice Date located on the PDF (MM/DD/YYYY)</div>
-<input type="text" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()" placeholder="MM/DD/YYYY"/>
+  <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
+        title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
+        aria-hidden="false"></span>
+  <label>Invoice Date</label>
+  <div class="info-text">Enter the Invoice Date located on the PDF</div>
+  <div class="input-group">
+    <input type="text" class="form-control" 
+           uib-datepicker-popup="MM/dd/yyyy"
+           ng-model="row.invoice_pdf_date_obj" 
+           ng-change="updateDateString(row, 'invoice_pdf_date')"
+           is-open="row.datePickerOpen"
+           datepicker-options="{showWeeks: false}"
+           close-text="Close" 
+           alt-input-formats="['M!/d!/yyyy']"
+           placeholder="MM/DD/YYYY"/>
+    <span class="input-group-btn">
+      <button type="button" class="btn btn-default" ng-click="openDatePicker(row, 'datePickerOpen')">
+        <i class="glyphicon glyphicon-calendar"></i>
+      </button>
+    </span>
+  </div>
   
   <div style="margin-top:7px;">
     <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_number != ''}"
@@ -49,11 +64,25 @@
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
   <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
-      title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
-      aria-hidden="false"></span>
-<label>Date on PDF</label>
-<div class="info-text">MM/DD/YYYY</div>
-<input type="text" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()" placeholder="MM/DD/YYYY"/>
+        title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
+        aria-hidden="false"></span>
+  <label>Date on PDF</label>
+  <div class="input-group">
+    <input type="text" class="form-control" 
+           uib-datepicker-popup="MM/dd/yyyy"
+           ng-model="row.invoice_pdf_date_obj" 
+           ng-change="updateDateString(row, 'invoice_pdf_date')"
+           is-open="row.creditDatePickerOpen"
+           datepicker-options="{showWeeks: false}"
+           close-text="Close" 
+           alt-input-formats="['M!/d!/yyyy']"
+           placeholder="MM/DD/YYYY"/>
+    <span class="input-group-btn">
+      <button type="button" class="btn btn-default" ng-click="openDatePicker(row, 'creditDatePickerOpen')">
+        <i class="glyphicon glyphicon-calendar"></i>
+      </button>
+    </span>
+  </div>
   
   <div style="margin-top:7px;">
     <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_number != ''}"
@@ -237,6 +266,8 @@
     var invoice_row = {
         id: uuidv4(),
         invoice_pdf_date: '',
+        invoice_pdf_date_obj: null,
+        datePickerOpen: false,
         invoice_number: '',
         invoice_amount: '',
         attachmentCount: 0,
@@ -264,7 +295,6 @@
 
 
 
-
 // Client Script
 
 api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
@@ -278,6 +308,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         var row = {
             id: uuidv4(),
             invoice_pdf_date: '',
+            invoice_pdf_date_obj: null,
             invoice_number: '',
             invoice_amount: '',
             attachmentCount: 0,
@@ -286,8 +317,10 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         };
 
         if (type === 'invoice') {
+            row.datePickerOpen = false;
             c.data.invoice_rows.push(row);
         } else {
+            row.creditDatePickerOpen = false;
             c.data.credit_rows.push(row);
         }
         refreshMandatoryFilled();
@@ -405,6 +438,23 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             return v.toString(16);
         });
     }
+
+    $scope.openDatePicker = function(row, pickerName) {
+        row[pickerName] = true;
+    };
+
+    $scope.updateDateString = function(row, fieldName) {
+        if (row.invoice_pdf_date_obj) {
+            var d = row.invoice_pdf_date_obj;
+            var month = String(d.getMonth() + 1).padStart(2, '0');
+            var day = String(d.getDate()).padStart(2, '0');
+            var year = d.getFullYear();
+            row[fieldName] = year + '-' + month + '-' + day; // YYYY-MM-DD format for ServiceNow
+        } else {
+            row[fieldName] = '';
+        }
+        $scope.refreshVariables();
+    };
 
     function refreshMandatoryFilled() {
         var invoice_mandatory_filled = 0;
