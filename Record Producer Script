@@ -11,6 +11,11 @@ var invoice_pdf_dates = producer.invoice_pdf_dates.toString().split(',');
 var invoice_credit_variables = producer.invoice_credit_variables.toString().split(',');
 var invoice_lines = [];
 
+gs.info('===== INVOICE SUBMISSION DEBUG =====');
+gs.info('invoice_pdf_dates variable: ' + producer.invoice_pdf_dates);
+gs.info('invoice_pdf_dates array: ' + invoice_pdf_dates);
+gs.info('invoice_credit_variables: ' + invoice_credit_variables);
+
 for (var i = 0; i < invoice_numbers.length; i++) {
     var gr = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
     gr.initialize();
@@ -24,7 +29,12 @@ for (var i = 0; i < invoice_numbers.length; i++) {
     gr.invoice_credit_variable = invoice_credit_variables[i];
     gr.invoice_pdf_date = invoice_pdf_dates[i];
     
+    gs.info('Record ' + i + ' - Type: ' + invoice_credit_variables[i] + ', PDF Date: ' + invoice_pdf_dates[i]);
+    
     var invoice_id = gr.insert();
+    
+    gs.info('Record ' + i + ' inserted with sys_id: ' + invoice_id);
+    
     invoice_lines.push(invoice_id);
 }
 
