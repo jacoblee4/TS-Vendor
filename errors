@@ -1,0 +1,23 @@
+01-16-2026 14:28:42
+Information	x_banun_submit_a_0	===== INVOICE SUBMISSION DEBUG =====
+
+01-16-2026 14:28:42
+Information	x_banun_submit_a_0	invoice_pdf_dates array: Sun Jan 18 2026 00:00:00 GMT-0500 (Eastern Standard Time),Sat Jan 17 2026 00:00:00 GMT-0500 (Eastern Standard Time)
+
+01-16-2026 14:28:42
+Information	x_banun_submit_a_0	Record 1 inserted with sys_id: 8a1a99e41baefa10f5b0cbfa234bcb0f
+
+01-16-2026 14:28:42
+Information	x_banun_submit_a_0	Record 0 inserted with sys_id: f91ad9a41baefa10f5b0cbfa234bcbfe
+
+01-16-2026 14:28:42
+Information	x_banun_submit_a_0	Record 0 - Type: invoice, PDF Date: Sun Jan 18 2026 00:00:00 GMT-0500 (Eastern Standard Time)
+
+01-16-2026 14:28:42
+Information	x_banun_submit_a_0	invoice_credit_variables: invoice,credit
+
+01-16-2026 14:28:42
+Information	x_banun_submit_a_0	invoice_pdf_dates variable: Sun Jan 18 2026 00:00:00 GMT-0500 (Eastern Standard Time),Sat Jan 17 2026 00:00:00 GMT-0500 (Eastern Standard Time)
+
+01-16-2026 14:28:42
+Information	x_banun_submit_a_0	Record 1 - Type: credit, PDF Date: Sat Jan 17 2026 00:00:00 GMT-0500 (Eastern Standard Time)
