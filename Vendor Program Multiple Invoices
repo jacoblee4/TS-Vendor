@@ -439,12 +439,24 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     for (var i = 0; i < c.data.invoice_rows.length; i++) {
         var invRow = c.data.invoice_rows[i];
         
-        console.log('Invoice Row ' + i + ' PDF Date:', invRow.invoice_pdf_date);
+        // Convert Date object to YYYY-MM-DD string
+        var dateString = '';
+        if (invRow.invoice_pdf_date) {
+            if (invRow.invoice_pdf_date instanceof Date) {
+                var d = invRow.invoice_pdf_date;
+                var month = String(d.getMonth() + 1).padStart(2, '0');
+                var day = String(d.getDate()).padStart(2, '0');
+                var year = d.getFullYear();
+                dateString = year + '-' + month + '-' + day;
+            } else {
+                dateString = invRow.invoice_pdf_date;
+            }
+        }
         
         invoice_numbers += invRow.invoice_number + ',';
         invoice_amounts += invRow.invoice_amount + ',';
         attachment_ids += invRow.id + ',';
-        invoice_pdf_dates += (invRow.invoice_pdf_date || '') + ',';
+        invoice_pdf_dates += dateString + ',';
         invoice_credit_variables += 'invoice,';
     }
 
@@ -452,12 +464,24 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     for (var j = 0; j < c.data.credit_rows.length; j++) {
         var credRow = c.data.credit_rows[j];
         
-        console.log('Credit Row ' + j + ' PDF Date:', credRow.invoice_pdf_date);
+        // Convert Date object to YYYY-MM-DD string
+        var creditDateString = '';
+        if (credRow.invoice_pdf_date) {
+            if (credRow.invoice_pdf_date instanceof Date) {
+                var d = credRow.invoice_pdf_date;
+                var month = String(d.getMonth() + 1).padStart(2, '0');
+                var day = String(d.getDate()).padStart(2, '0');
+                var year = d.getFullYear();
+                creditDateString = year + '-' + month + '-' + day;
+            } else {
+                creditDateString = credRow.invoice_pdf_date;
+            }
+        }
         
         invoice_numbers += credRow.invoice_number + ',';
         invoice_amounts += credRow.invoice_amount + ',';
         attachment_ids += credRow.id + ',';
-        invoice_pdf_dates += (credRow.invoice_pdf_date || '') + ',';
+        invoice_pdf_dates += creditDateString + ',';
         invoice_credit_variables += 'credit,';
     }
 
@@ -467,8 +491,6 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     attachment_ids = attachment_ids.slice(0, -1);
     invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
     invoice_credit_variables = invoice_credit_variables.slice(0, -1);
-
-    console.log('Final invoice_pdf_dates string:', invoice_pdf_dates);
 
     g_form.setValue('invoice_numbers', invoice_numbers);
     g_form.setValue('invoice_amounts', invoice_amounts);
