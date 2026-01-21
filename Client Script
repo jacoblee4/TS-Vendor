@@ -1,184 +1,67 @@
-Client Script 1: u_sox onChange
+Step 1: Global UI Script (Updated Logic)
+Name: CriticalRiskCalculator
+Global: true
+Active: true
+javascriptfunction updateCriticalApplicationRisk() {
+    var sox = g_form.getValue('u_sox');
+    var glba = g_form.getValue('u_glba');
+    var sensitive = g_form.getValue('u_sensitive');
+    var sensitiveCommercial = g_form.getValue('u_sensitive_commerical');
+    
+    var soxYes = (sox == 'Yes');
+    var glbaYes = (glba != '0' && glba != '' && glba != null);
+    var sensitiveYes = (sensitive != '0' && sensitive != '' && sensitive != null);
+    var sensitiveCommercialYes = (sensitiveCommercial != '0' && sensitiveCommercial != '' && sensitiveCommercial != null);
+    
+    var anyFieldYes = soxYes || glbaYes || sensitiveYes || sensitiveCommercialYes;
+    var currentValue = g_form.getValue('u_critical_application_risk');
+    
+    if (!anyFieldYes) {
+        // All fields are No, set critical app to No
+        if (currentValue != 'No') {
+            g_form.setValue('u_critical_application_risk', 'No');
+        }
+    } else if (currentValue == 'No') {
+        // Currently No and at least one field is Yes, set to Yes
+        g_form.setValue('u_critical_application_risk', 'Yes');
+    }
+    // Otherwise leave it alone (already Yes or YesRBAC)
+}
+
+Step 2: Create 4 Client Scripts
+Client Script 1
 Name: Update Critical Risk - SOX
-Table: [Your table name]
-UI Type: All
+Table: [Your table]
 Type: onChange
 Field name: u_sox
-Active: true
 javascriptfunction onChange(control, oldValue, newValue, isLoading, isTemplate) {
-    if (isLoading || newValue == '') {
-        return;
-    }
-    
+    if (isLoading) return;
     updateCriticalApplicationRisk();
 }
-
-function updateCriticalApplicationRisk() {
-    // Get current values
-    var sox = g_form.getValue('u_sox');
-    var glba = g_form.getValue('u_glba');
-    var sensitive = g_form.getValue('u_sensitive');
-    var sensitiveCommercial = g_form.getValue('u_sensitive_commerical');
-    
-    // Convert to boolean
-    var soxYes = (sox == 'Yes');
-    var glbaYes = (glba != '0' && glba != '' && glba != null);
-    var sensitiveYes = (sensitive != '0' && sensitive != '' && sensitive != null);
-    var sensitiveCommercialYes = (sensitiveCommercial != '0' && sensitiveCommercial != '' && sensitiveCommercial != null);
-    
-    // Determine new value
-    var newValue;
-    
-    if (!soxYes && !glbaYes && !sensitiveYes && !sensitiveCommercialYes) {
-        newValue = 'No';
-    } else if (glbaYes || sensitiveYes || sensitiveCommercialYes) {
-        newValue = 'YesRBAC';
-    } else if (soxYes) {
-        newValue = 'Yes';
-    }
-    
-    // Update if changed
-    var currentValue = g_form.getValue('u_critical_application_risk');
-    if (currentValue != newValue) {
-        g_form.setValue('u_critical_application_risk', newValue);
-    }
-}
-
-Client Script 2: u_glba onChange
+Client Script 2
 Name: Update Critical Risk - GLBA
-Table: [Your table name]
-UI Type: All
+Table: [Your table]
 Type: onChange
 Field name: u_glba
-Active: true
 javascriptfunction onChange(control, oldValue, newValue, isLoading, isTemplate) {
-    if (isLoading || newValue == '') {
-        return;
-    }
-    
+    if (isLoading) return;
     updateCriticalApplicationRisk();
 }
-
-function updateCriticalApplicationRisk() {
-    // Get current values
-    var sox = g_form.getValue('u_sox');
-    var glba = g_form.getValue('u_glba');
-    var sensitive = g_form.getValue('u_sensitive');
-    var sensitiveCommercial = g_form.getValue('u_sensitive_commerical');
-    
-    // Convert to boolean
-    var soxYes = (sox == 'Yes');
-    var glbaYes = (glba != '0' && glba != '' && glba != null);
-    var sensitiveYes = (sensitive != '0' && sensitive != '' && sensitive != null);
-    var sensitiveCommercialYes = (sensitiveCommercial != '0' && sensitiveCommercial != '' && sensitiveCommercial != null);
-    
-    // Determine new value
-    var newValue;
-    
-    if (!soxYes && !glbaYes && !sensitiveYes && !sensitiveCommercialYes) {
-        newValue = 'No';
-    } else if (glbaYes || sensitiveYes || sensitiveCommercialYes) {
-        newValue = 'YesRBAC';
-    } else if (soxYes) {
-        newValue = 'Yes';
-    }
-    
-    // Update if changed
-    var currentValue = g_form.getValue('u_critical_application_risk');
-    if (currentValue != newValue) {
-        g_form.setValue('u_critical_application_risk', newValue);
-    }
-}
-
-Client Script 3: u_sensitive onChange
+Client Script 3
 Name: Update Critical Risk - Sensitive
-Table: [Your table name]
-UI Type: All
+Table: [Your table]
 Type: onChange
 Field name: u_sensitive
-Active: true
 javascriptfunction onChange(control, oldValue, newValue, isLoading, isTemplate) {
-    if (isLoading || newValue == '') {
-        return;
-    }
-    
+    if (isLoading) return;
     updateCriticalApplicationRisk();
 }
-
-function updateCriticalApplicationRisk() {
-    // Get current values
-    var sox = g_form.getValue('u_sox');
-    var glba = g_form.getValue('u_glba');
-    var sensitive = g_form.getValue('u_sensitive');
-    var sensitiveCommercial = g_form.getValue('u_sensitive_commerical');
-    
-    // Convert to boolean
-    var soxYes = (sox == 'Yes');
-    var glbaYes = (glba != '0' && glba != '' && glba != null);
-    var sensitiveYes = (sensitive != '0' && sensitive != '' && sensitive != null);
-    var sensitiveCommercialYes = (sensitiveCommercial != '0' && sensitiveCommercial != '' && sensitiveCommercial != null);
-    
-    // Determine new value
-    var newValue;
-    
-    if (!soxYes && !glbaYes && !sensitiveYes && !sensitiveCommercialYes) {
-        newValue = 'No';
-    } else if (glbaYes || sensitiveYes || sensitiveCommercialYes) {
-        newValue = 'YesRBAC';
-    } else if (soxYes) {
-        newValue = 'Yes';
-    }
-    
-    // Update if changed
-    var currentValue = g_form.getValue('u_critical_application_risk');
-    if (currentValue != newValue) {
-        g_form.setValue('u_critical_application_risk', newValue);
-    }
-}
-
-Client Script 4: u_sensitive_commerical onChange
+Client Script 4
 Name: Update Critical Risk - Sensitive Commercial
-Table: [Your table name]
-UI Type: All
+Table: [Your table]
 Type: onChange
 Field name: u_sensitive_commerical
-Active: true
 javascriptfunction onChange(control, oldValue, newValue, isLoading, isTemplate) {
-    if (isLoading || newValue == '') {
-        return;
-    }
-    
+    if (isLoading) return;
     updateCriticalApplicationRisk();
 }
-
-function updateCriticalApplicationRisk() {
-    // Get current values
-    var sox = g_form.getValue('u_sox');
-    var glba = g_form.getValue('u_glba');
-    var sensitive = g_form.getValue('u_sensitive');
-    var sensitiveCommercial = g_form.getValue('u_sensitive_commerical');
-    
-    // Convert to boolean
-    var soxYes = (sox == 'Yes');
-    var glbaYes = (glba != '0' && glba != '' && glba != null);
-    var sensitiveYes = (sensitive != '0' && sensitive != '' && sensitive != null);
-    var sensitiveCommercialYes = (sensitiveCommercial != '0' && sensitiveCommercial != '' && sensitiveCommercial != null);
-    
-    // Determine new value
-    var newValue;
-    
-    if (!soxYes && !glbaYes && !sensitiveYes && !sensitiveCommercialYes) {
-        newValue = 'No';
-    } else if (glbaYes || sensitiveYes || sensitiveCommercialYes) {
-        newValue = 'YesRBAC';
-    } else if (soxYes) {
-        newValue = 'Yes';
-    }
-    
-    // Update if changed
-    var currentValue = g_form.getValue('u_critical_application_risk');
-    if (currentValue != newValue) {
-        g_form.setValue('u_critical_application_risk', newValue);
-    }
-}
-
