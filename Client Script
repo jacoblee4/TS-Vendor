@@ -1,13 +1,44 @@
-Ok let's create the script:
+function onChange(control, oldValue, newValue, isLoading, isTemplate) {
+    if (isLoading || newValue == '') {
+        return;
+    }
+    
+    // Call the function to update u_critical_application_risk
+    updateCriticalApplicationRisk();
+}
 
-Field A = u_critical_application_risk
-. The options are actually No, Yes, YesRBAC.
-If field A is already Yes or YesRBAC than as long as B/C/D ares yes it would stay that way. For example field B is Yes and field A is YesRBAC and field C changes to Yes it statys YesRbac. if field B then goes No it's still YesRbac. if everything is No though it goes to No.
-
-Field B = u_sox with options No and Yes. If everything is No and B becomes Yes than field A just becomes Yes but if C or D were Yes and A was YesRBAC than it says YesRBAC.
-
-Field C = u_glba with options 0 which = No and then 3 "Yes" 1, 101, 1001. So anything other than a 0 should be treated as a Yes.
-
-Field D is same as C but it's name is u_sensitive
-
-I forgot there is a 4th field just like C and D called u_sensitive_commerical
+function updateCriticalApplicationRisk() {
+    // Get current values
+    var sox = g_form.getValue('u_sox'); // "Yes" or "No"
+    var glba = g_form.getValue('u_glba'); // 0 = No, anything else = Yes
+    var sensitive = g_form.getValue('u_sensitive'); // 0 = No, anything else = Yes
+    var sensitiveCommercial = g_form.getValue('u_sensitive_commerical'); // 0 = No, anything else = Yes
+    
+    // Convert to boolean for easier logic
+    var soxYes = (sox == 'Yes');
+    var glbaYes = (glba != '0' && glba != '' && glba != null);
+    var sensitiveYes = (sensitive != '0' && sensitive != '' && sensitive != null);
+    var sensitiveCommercialYes = (sensitiveCommercial != '0' && sensitiveCommercial != '' && sensitiveCommercial != null);
+    
+    // Determine the value for u_critical_application_risk
+    var newValue;
+    
+    // If all fields are No, set to No
+    if (!soxYes && !glbaYes && !sensitiveYes && !sensitiveCommercialYes) {
+        newValue = 'No';
+    }
+    // If any of GLBA, Sensitive, or Sensitive Commercial is Yes, set to YesRBAC
+    else if (glbaYes || sensitiveYes || sensitiveCommercialYes) {
+        newValue = 'YesRBAC';
+    }
+    // Otherwise (only SOX is Yes), set to Yes
+    else if (soxYes) {
+        newValue = 'Yes';
+    }
+    
+    // Update the field if the value changed
+    var currentValue = g_form.getValue('u_critical_application_risk');
+    if (currentValue != newValue) {
+        g_form.setValue('u_critical_application_risk', newValue);
+    }
+}
