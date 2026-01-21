@@ -1,0 +1,13 @@
+Ok let's create the script:
+
+Field A = u_critical_application_risk
+. The options are actually No, Yes, YesRBAC.
+If field A is already Yes or YesRBAC than as long as B/C/D ares yes it would stay that way. For example field B is Yes and field A is YesRBAC and field C changes to Yes it statys YesRbac. if field B then goes No it's still YesRbac. if everything is No though it goes to No.
+
+Field B = u_sox with options No and Yes. If everything is No and B becomes Yes than field A just becomes Yes but if C or D were Yes and A was YesRBAC than it says YesRBAC.
+
+Field C = u_glba with options 0 which = No and then 3 "Yes" 1, 101, 1001. So anything other than a 0 should be treated as a Yes.
+
+Field D is same as C but it's name is u_sensitive
+
+I forgot there is a 4th field just like C and D called u_sensitive_commerical
