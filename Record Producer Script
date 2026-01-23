@@ -22,7 +22,7 @@ for (var i = 0; i < invoice_numbers.length; i++) {
     
     // Handle invoice number with partial payment suffixes
     var invoiceNumber = invoice_numbers[i];
-    if (producer.partial_pay_indicator == 'true' || producer.partial_pay_indicator == true) {
+    if (producer.partial_pay_indicator == 'Yes') {
         if (producer.partialpay_type == 'additional_payment') {
             invoiceNumber += '_BAL';
         } else if (producer.partialpay_type == 'final_payment') {
