@@ -44,14 +44,15 @@
 
 <hr style="border-width: 1px; margin-top: 30px; margin-bottom: 20px;">
 
-<h4>Credits</h4>
+<h4>Credit Memo's</h4>
 <div class="form-group" ng-repeat="row in data.credit_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
   <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
         title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
         aria-hidden="false"></span>
-  <label>Date on PDF</label>
+  <label>Invoice date</label>
+    <div class="info-text">Enter the Invoice Date located on the PDF</div>
   <input type="date" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()"/>
   
   <div style="margin-top:7px;">
@@ -85,9 +86,11 @@
 </div>
 <button class='btn btn-danger' id='AddCredit' ng-click="addRow('credit')">Add Credit Memo</button>
 
+<hr style="border-width: 1px; margin-top: 30px; margin-bottom: 20px;">
+
 <div class="warning-bubble" ng-show="showTotalError">
   <span class="glyphicon glyphicon-warning-sign" style="margin-right: 8px;"></span>
-  Total of invoices and credits must be positive. Current total: <strong>{{currentTotal}}</strong>
+  The credit amount cannot exceed invoice amount. Current total: <strong>{{currentTotal}}</strong>
 </div>
 
 
@@ -275,7 +278,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             id: uuidv4(),
             invoice_pdf_date: '',
             invoice_number: '',
-            invoice_amount: '',
+            invoice_amount: type === 'credit' ? '-' : '',
             attachmentCount: 0,
             invoice_error: type === 'invoice' ? 'Invalid currency format or must be positive.' : 'Invalid currency format or must be negative.',
             show_invoice_error: false
@@ -327,7 +330,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     }
 
     function appendError(error) {
-        console.log(error.msg + error.fileName);
+        gs.error(error.msg + error.fileName);
     }
 
     $scope.setCurrentID = function(row_id, $event) {
