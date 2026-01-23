@@ -1,0 +1,9 @@
+We have a field on the form called partial_pay_indicator that is a type Yes/No. If yes another field appears partialpay_type with options initial_payment, additional_payment, and final_payment. 
+
+ if it's an initial_payment, leave as is, if additional_payment, append to the end, "_BAL" , if final_payment, append to the end, "_FINAL" to the invoice number field.
+ So the invoice number would look like so for an exmaple of "101"
+initial_payment: 101
+additional_payment: 101_BAL
+final_payment: 101_FINAL
+
+Can you update the RP or widget to account for this?
