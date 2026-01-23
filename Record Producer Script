@@ -19,7 +19,19 @@ for (var i = 0; i < invoice_numbers.length; i++) {
     gr.invoice_account_toggle = producer.invoice_account_toggle;
     gr.supplier_name = supplier_name;
     gr.remit_to_address = address_line_1;
-    gr.invoice_number = invoice_numbers[i];
+    
+    // Handle invoice number with partial payment suffixes
+    var invoiceNumber = invoice_numbers[i];
+    if (producer.partial_pay_indicator == 'true' || producer.partial_pay_indicator == true) {
+        if (producer.partialpay_type == 'additional_payment') {
+            invoiceNumber += '_BAL';
+        } else if (producer.partialpay_type == 'final_payment') {
+            invoiceNumber += '_FINAL';
+        }
+        // initial_payment leaves it as is (no suffix)
+    }
+    
+    gr.invoice_number = invoiceNumber;
     
     // Populate invoice_total or credit_memo based on type
     if (invoice_credit_variables[i] == 'invoice') {
