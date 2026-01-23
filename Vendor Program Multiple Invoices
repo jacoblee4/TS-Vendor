@@ -40,7 +40,7 @@
     <button class="btn btn-danger" ng-click="deleteRow($index, row.id, 'invoice')" ng-if="$index > 0">Delete</button>
   </div>
 </div>
-<button class='btn btn-primary' id='Add' ng-click="addRow('invoice')">Add Invoice/Account</button>
+<button class='btn btn-primary' id='Add' ng-click="addRow('invoice')" ng-hide="hideAddInvoiceButton">Add Invoice/Account</button>
 
 <hr style="border-width: 1px; margin-top: 30px; margin-bottom: 20px;">
 
@@ -315,6 +315,40 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     }
 
     setupAttachmentHandler();
+
+	// Watch for partial_pay_indicator changes
+$scope.hideAddInvoiceButton = false;
+
+$scope.$watch(function() {
+    return g_form.getValue('partial_pay_indicator');
+}, function(newValue, oldValue) {
+    if (newValue == 'true' || newValue == true) {
+        // Hide the Add Invoice button
+        $scope.hideAddInvoiceButton = true;
+        
+        // If there are multiple invoice rows, delete extras and keep only the first
+        if (c.data.invoice_rows.length > 1) {
+            // Delete attachments and rows for all invoices except the first
+            for (var i = c.data.invoice_rows.length - 1; i > 0; i--) {
+                var row_id = c.data.invoice_rows[i].id;
+                
+                // Delete attachments on server
+                c.server.get({
+                    action: 'delete_row',
+                    row_id: row_id
+                });
+                
+                // Remove from array
+                c.data.invoice_rows.splice(i, 1);
+            }
+            
+            $scope.refreshVariables();
+        }
+    } else {
+        // Show the Add Invoice button when partial payment is No
+        $scope.hideAddInvoiceButton = false;
+    }
+});
 
     $scope.$watch(function() {
         return g_form.getValue('invoice_account_toggle');
