@@ -24,13 +24,25 @@ if (midServer.next()) {
     var mid_name = midServer.name;
 }
 
-// Query New Invoice Submission table for Approved invoices
+// FIRST PASS: Determine the maximum attachment count across all invoices
+var grInvoicesCount = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
+grInvoicesCount.addQuery('approval', 'approved');
+grInvoicesCount.addQuery('invoice_status', '1'); // New
+grInvoicesCount.query();
+
+while (grInvoicesCount.next()) {
+    var attachments = new GlideSysAttachment().getAttachments("x_banun_submit_a_0_new_invoice_submission", grInvoicesCount.sys_id);
+    if (attachments.getRowCount() > attachmentCount) {
+        attachmentCount = attachments.getRowCount();
+    }
+}
+
+// SECOND PASS: Build 2 rows of data for each invoice (now that we know attachmentCount)
 var grInvoices = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
 grInvoices.addQuery('approval', 'approved');
 grInvoices.addQuery('invoice_status', '1'); // New
 grInvoices.query();
 
-// Build 2 rows of data for each invoice
 while (grInvoices.next()) {
 
     // Row 1 of invoice data (Row d with the .match was updated per STRY0078803)
@@ -56,25 +68,24 @@ while (grInvoices.next()) {
 
     // Add each attachment name to the invoice data
     var attachments = new GlideSysAttachment().getAttachments("x_banun_submit_a_0_new_invoice_submission", grInvoices.sys_id);
-    if (attachments.getRowCount() > attachmentCount) {
-        attachmentCount = attachments.getRowCount();
-    }
-	var currentAttachmentCount = 0;
+    var currentAttachmentCount = 0;
     while (attachments.next()) {
         if (attachments.getValue('file_name')) {
             invoiceData = invoiceData + ',"file://' + attachments.getValue('file_name') + '"';
-			currentAttachmentCount++;
+            currentAttachmentCount++;
 
             // Send each attachment to the mid server
             sendAttachmentToMid(attachments.getValue('file_name'), 'x_banun_submit_a_0_new_invoice_submission', grInvoices.sys_id, mid_name, exportFolder);
         }
     }
 
-	for (var i = currentAttachmentCount; i < attachmentCount; i++){
-		invoiceData = invoiceData + ',""';
-	}
+    // Pad with empty columns if this invoice has fewer attachments than the max
+    for (var i = currentAttachmentCount; i < attachmentCount; i++) {
+        invoiceData = invoiceData + ',""';
+    }
 
-	var isCreditMemo = (grInvoices.invoice_credit_variable == 'credit') ? 'Yes' : 'No';
+    // Add credit memo value
+    var isCreditMemo = (grInvoices.invoice_credit_variable == 'credit') ? 'Yes' : 'No';
     invoiceData = invoiceData + ',"' + isCreditMemo + '"';
     invoiceData = invoiceData + "\r\n";
 
@@ -97,9 +108,15 @@ while (grInvoices.next()) {
         '"' + grInvoices.requested_by.vendor.gl3 + '",' +
         '"",' +
         '"",' +
-        '"",' +
         '""';
-	invoiceData = invoiceData + ',""';
+        
+    // Pad with empty columns for all attachment columns
+    for (var j = 0; j < attachmentCount; j++) {
+        invoiceData = invoiceData + ',""';
+    }
+
+    // Add empty column for credit memo
+    invoiceData = invoiceData + ',""';
     invoiceData = invoiceData + "\r\n";
 }
 
@@ -161,8 +178,8 @@ headerData = headerData + "\r\n";
 Headers2.forEach(function(ele) {
     headerData = headerData + '"' + ele + '",';
 });
-for (let i = 0; i < attachmentCount; i++){
-	headerData = headerData + '"",';
+for (let i = 0; i < attachmentCount; i++) {
+    headerData = headerData + '"",';
 }
 headerData = headerData + '"",';
 headerData = headerData + "\r\n";
