@@ -39,7 +39,7 @@ while (grInvoices.next()) {
         '"' + grInvoices.invoice_number + '",' +
         '"' + grInvoices.supplier_name.getDisplayValue() + '",' +
         '"' + grInvoices.supplier_name.supplier_number + '",' +
-        '"' + grInvoices.invoice_pdf_date.getDisplayValue() + '",' +
+        '"' + grInvoices.invoice_date.getDisplayValue() + '",' +
         '"Yes",' +
         '"",' +
         '"FALSE",' +
@@ -59,14 +59,23 @@ while (grInvoices.next()) {
     if (attachments.getRowCount() > attachmentCount) {
         attachmentCount = attachments.getRowCount();
     }
+	var currentAttachmentCount = 0;
     while (attachments.next()) {
         if (attachments.getValue('file_name')) {
             invoiceData = invoiceData + ',"file://' + attachments.getValue('file_name') + '"';
+			currentAttachmentCount++;
 
             // Send each attachment to the mid server
             sendAttachmentToMid(attachments.getValue('file_name'), 'x_banun_submit_a_0_new_invoice_submission', grInvoices.sys_id, mid_name, exportFolder);
         }
     }
+
+	for (var i = currentAttachmentCount; i < attachmentCount; i++){
+		invoiceData = invoiceData + ',""';
+	}
+
+	var isCreditMemo = (grInvoices.invoice_credit_variable == 'credit') ? 'Yes' : 'No';
+    invoiceData = invoiceData + ',"' + isCreditMemo + '"';
     invoiceData = invoiceData + "\r\n";
 
     // Row 2 of invoice data (Row d with the .match was updated per STRY0078803)
@@ -88,7 +97,9 @@ while (grInvoices.next()) {
         '"' + grInvoices.requested_by.vendor.gl3 + '",' +
         '"",' +
         '"",' +
+        '"",' +
         '""';
+	invoiceData = invoiceData + ',""';
     invoiceData = invoiceData + "\r\n";
 }
 
@@ -144,11 +155,16 @@ Headers1.forEach(function(ele) {
 for (let i = 0; i < attachmentCount; i++) {
     headerData = headerData + '"' + "Attachment " + (i + 1) + '",';
 }
+headerData = headerData + '"Is Credit Memo",';
 headerData = headerData + "\r\n";
 
 Headers2.forEach(function(ele) {
     headerData = headerData + '"' + ele + '",';
 });
+for (let i = 0; i < attachmentCount; i++){
+	headerData = headerData + '"",';
+}
+headerData = headerData + '"",';
 headerData = headerData + "\r\n";
 
 // Combine the header and invoice data together
