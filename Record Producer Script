@@ -20,7 +20,14 @@ for (var i = 0; i < invoice_numbers.length; i++) {
     gr.supplier_name = supplier_name;
     gr.remit_to_address = address_line_1;
     gr.invoice_number = invoice_numbers[i];
-    gr.invoice_total = invoice_amounts[i];
+    
+    // Populate invoice_total or credit_memo based on type
+    if (invoice_credit_variables[i] == 'invoice') {
+        gr.invoice_total = invoice_amounts[i];
+    } else if (invoice_credit_variables[i] == 'credit') {
+        gr.credit_memo = invoice_amounts[i];
+    }
+    
     gr.invoice_credit_variable = invoice_credit_variables[i];
     gr.invoice_pdf_date = invoice_pdf_dates[i];
 
