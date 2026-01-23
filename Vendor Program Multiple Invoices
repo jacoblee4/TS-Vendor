@@ -319,33 +319,36 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 	// Watch for partial_pay_indicator changes
 $scope.hideAddInvoiceButton = false;
 
+// In Client Script - use console.log with prefix
 $scope.$watch(function() {
     return g_form.getValue('partial_pay_indicator');
 }, function(newValue, oldValue) {
-    if (newValue == 'true' || newValue == true) {
-        // Hide the Add Invoice button
+    console.log('[PARTIAL_PAY] Value changed:', newValue, 'Type:', typeof newValue);
+    
+    var isPartialPay = (newValue === 'true' || newValue === true || newValue === '1' || newValue === 1);
+    
+    if (isPartialPay) {
+        console.log('[PARTIAL_PAY] Setting hideAddInvoiceButton to true');
         $scope.hideAddInvoiceButton = true;
         
-        // If there are multiple invoice rows, delete extras and keep only the first
         if (c.data.invoice_rows.length > 1) {
-            // Delete attachments and rows for all invoices except the first
+            console.log('[PARTIAL_PAY] Deleting extra invoice rows, current count:', c.data.invoice_rows.length);
+            
             for (var i = c.data.invoice_rows.length - 1; i > 0; i--) {
                 var row_id = c.data.invoice_rows[i].id;
                 
-                // Delete attachments on server
                 c.server.get({
                     action: 'delete_row',
                     row_id: row_id
                 });
                 
-                // Remove from array
                 c.data.invoice_rows.splice(i, 1);
             }
             
             $scope.refreshVariables();
         }
     } else {
-        // Show the Add Invoice button when partial payment is No
+        console.log('[PARTIAL_PAY] Setting hideAddInvoiceButton to false');
         $scope.hideAddInvoiceButton = false;
     }
 });
