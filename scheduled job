@@ -1,0 +1,205 @@
+// Delete all attachments from this scheduled job to make way for new csv
+var attachment = new GlideSysAttachment();
+var attachment_gr = attachment.getAttachments(current.getTableName(), current.getUniqueValue());
+while (attachment_gr.next()) {
+    attachment.deleteAttachment(attachment_gr.getUniqueValue());
+}
+
+/* Create new csv file and attach to this record */
+
+// Defined variables
+var csvFileName = "Vendor_Prog_invoices_SNOW.csv";
+var exportFolder = '/Coupa';
+var headerData = '';
+var invoiceData = '';
+var csvData = '';
+var attachmentCount = 0;
+
+//Get the mid server name
+var midServer = new GlideRecord('ecc_agent');
+midServer.addQuery('status', 'Up');
+midServer.addEncodedQuery('name=SNOWDevMIDServer^ORname=SNOWTestMIDServer^ORname=LDAP_MID');
+midServer.query();
+if (midServer.next()) {
+    var mid_name = midServer.name;
+}
+
+// Query New Invoice Submission table for Approved invoices
+var grInvoices = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
+grInvoices.addQuery('approval', 'approved');
+grInvoices.addQuery('invoice_status', '1'); // New
+grInvoices.query();
+
+// Build 2 rows of data for each invoice
+while (grInvoices.next()) {
+
+    // Row 1 of invoice data (Row d with the .match was updated per STRY0078803)
+    invoiceData = invoiceData +
+        '"Invoice",' +
+        '"' + grInvoices.invoice_number + '",' +
+        '"' + grInvoices.supplier_name.getDisplayValue() + '",' +
+        '"' + grInvoices.supplier_name.supplier_number + '",' +
+        '"' + grInvoices.invoice_pdf_date.getDisplayValue() + '",' +
+        '"Yes",' +
+        '"",' +
+        '"FALSE",' +
+        '"",' +
+        '"IMMED",' +
+        '"Chart of Accounts",' +
+        '"USD",' +
+        '"",' +
+        '"",' +
+        '"",' +
+        '"' + grInvoices.grand_total + '",' +
+        '"' + grInvoices.supplier_name.address_remit_to_code + '",' +
+        '"' + grInvoices.memo_to_recipient + '"';
+
+    // Add each attachment name to the invoice data
+    var attachments = new GlideSysAttachment().getAttachments("x_banun_submit_a_0_new_invoice_submission", grInvoices.sys_id);
+    if (attachments.getRowCount() > attachmentCount) {
+        attachmentCount = attachments.getRowCount();
+    }
+    while (attachments.next()) {
+        if (attachments.getValue('file_name')) {
+            invoiceData = invoiceData + ',"file://' + attachments.getValue('file_name') + '"';
+
+            // Send each attachment to the mid server
+            sendAttachmentToMid(attachments.getValue('file_name'), 'x_banun_submit_a_0_new_invoice_submission', grInvoices.sys_id, mid_name, exportFolder);
+        }
+    }
+    invoiceData = invoiceData + "\r\n";
+
+    // Row 2 of invoice data (Row d with the .match was updated per STRY0078803)
+    invoiceData = invoiceData +
+        '"Invoice Line",' +
+        '"' + grInvoices.invoice_number + '",' +
+        '"' + grInvoices.supplier_name.getDisplayValue() + '",' +
+        '"' + grInvoices.supplier_name.supplier_number + '",' +
+        '"' + grInvoices.requested_by.vendor.account_nbr + '",' +
+        '"",' +
+        '"' + grInvoices.grand_total + '",' +
+        '"",' +
+        '"ea",' +
+        '"",' +
+        '"",' +
+        '"",' +
+        '"' + grInvoices.requested_by.vendor.gl1 + '",' +
+        '"' + grInvoices.requested_by.vendor.gl2 + '",' +
+        '"' + grInvoices.requested_by.vendor.gl3 + '",' +
+        '"",' +
+        '"",' +
+        '""';
+    invoiceData = invoiceData + "\r\n";
+}
+
+// Include 2 header rows
+// Row 1 of header data
+var Headers1 = [
+    "Invoice",
+    "Invoice Number*",
+    "Supplier Name",
+    "Supplier Number",
+    "Invoice Date*",
+    "Submit For Approval?",
+    "Misc Amount",
+    "Line Level Taxation*",
+    "Supplier Note",
+    "Payment Terms",
+    "Chart of Accounts*",
+    "Currency",
+    "Image Scan Filename",
+    "Image Scan URL",
+    "Local Currency Net",
+    "Invoice Control Total",
+    "Remit To Code",
+    "Memo To Recipient"
+];
+
+// Row 2 of header data
+var Headers2 = [
+    "Invoice Line",
+    "Invoice Number*",
+    "Supplier Name",
+    "Supplier Number",
+    "Description*",
+    "Supplier Part Number",
+    "Price*",
+    "Bulk Price",
+    "Unit of Measure*",
+    "Category",
+    "Account Name",
+    "Account Code",
+    "Account Segment 1",
+    "Account Segment 2",
+    "Account Segment 3",
+    "Account Segment 12",
+    "",
+    ""
+];
+
+// 1 row of data is created with each forEach loop for 2 total rows of data per invoice
+Headers1.forEach(function(ele) {
+    headerData = headerData + '"' + ele + '",';
+});
+for (let i = 0; i < attachmentCount; i++) {
+    headerData = headerData + '"' + "Attachment " + (i + 1) + '",';
+}
+headerData = headerData + "\r\n";
+
+Headers2.forEach(function(ele) {
+    headerData = headerData + '"' + ele + '",';
+});
+headerData = headerData + "\r\n";
+
+// Combine the header and invoice data together
+csvData = headerData + invoiceData;
+
+// Create and attach the file to this scheduled job
+var grRecord = new GlideRecord('sysauto_script');
+grRecord.get(current.getUniqueValue());
+var grAttachment = new GlideSysAttachment();
+grAttachment.write(grRecord, csvFileName, 'application/csv', csvData);
+
+// Send the attached CSV to the mid server
+sendAttachmentToMid(csvFileName, current.getTableName(), current.getUniqueValue(), mid_name, exportFolder);
+
+/* Function to export a specific attachment to the mid server */
+function sendAttachmentToMid(filename, tableName, recordSysID, midServerName, exportFolderName) {
+
+    // Create ECC attachment record used to send the file to the mid server
+    var ecc_att = new GlideRecord('ecc_agent_attachment');
+    ecc_att.initialize();
+    ecc_att.name = 'Export Set Attachment';
+    ecc_att.short_description = 'exportToMid: ' + filename;
+    ecc_att.insert();
+
+    // Copy attachments (OOB Function copies all attachments)
+    GlideSysAttachment.copy(tableName, recordSysID, 'ecc_agent_attachment', ecc_att.sys_id);
+
+    // Get the SYS_ID of the exact attachment file to be exported and used in ECC Payload
+    var at = new GlideRecord('sys_attachment');
+    at.addQuery('table_name', 'ecc_agent_attachment');
+    at.addQuery('table_sys_id', ecc_att.sys_id);
+    at.addQuery('file_name', filename);
+    at.query();
+    at.next();
+
+    // Create XML for ECC Payload
+    var xmlString = '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<parameters>' +
+        '<parameter name=\"stream_relay_response_topic\" value=\"ExportSetResult\"/>' +
+        '<stream_relay_source attachment_sys_id=\"' + at.sys_id + '\" type=\"AttachmentSource\"/>' +
+        '<stream_relay_transform attachment.table_sys_id=\"' + ecc_att.sys_id + '\" order=\"0\" stream_relay_transfer_progress_interval=\"150\" type=\"AttachmentProgressTransformer\"/>' +
+        '<stream_relay_sink path="\/' + exportFolderName + '\/' + filename + '" type=\"FileSink\"/>' +
+        '</parameters>';
+
+    // Create ECC Record
+    var eccQueue = new GlideRecord('ecc_queue');
+    eccQueue.initialize();
+    eccQueue.agent = 'mid.server.' + midServerName;
+    eccQueue.topic = 'StreamPipeline';
+    eccQueue.queue = 'output';
+    eccQueue.state = 'ready';
+    eccQueue.payload = xmlString;
+    eccQueue.insert();
+}
