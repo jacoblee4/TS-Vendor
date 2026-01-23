@@ -272,6 +272,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
     $scope.showTotalError = false;
     $scope.currentTotal = '$0.00';
+    $scope.hideAddInvoiceButton = false;
 
     $scope.addRow = function(type) {
         var row = {
@@ -316,42 +317,31 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
     setupAttachmentHandler();
 
-	// Watch for partial_pay_indicator changes
-$scope.hideAddInvoiceButton = false;
-
-// In Client Script - use console.log with prefix
-$scope.$watch(function() {
-    return g_form.getValue('partial_pay_indicator');
-}, function(newValue, oldValue) {
-    console.log('[PARTIAL_PAY] Value changed:', newValue, 'Type:', typeof newValue);
-    
-    var isPartialPay = (newValue === 'true' || newValue === true || newValue === '1' || newValue === 1);
-    
-    if (isPartialPay) {
-        console.log('[PARTIAL_PAY] Setting hideAddInvoiceButton to true');
-        $scope.hideAddInvoiceButton = true;
-        
-        if (c.data.invoice_rows.length > 1) {
-            console.log('[PARTIAL_PAY] Deleting extra invoice rows, current count:', c.data.invoice_rows.length);
+    // Watch for partial_pay_indicator changes
+    $scope.$watch(function() {
+        return g_form.getValue('partial_pay_indicator');
+    }, function(newValue, oldValue) {
+        if (newValue === 'Yes') {
+            $scope.hideAddInvoiceButton = true;
             
-            for (var i = c.data.invoice_rows.length - 1; i > 0; i--) {
-                var row_id = c.data.invoice_rows[i].id;
+            if (c.data.invoice_rows.length > 1) {
+                for (var i = c.data.invoice_rows.length - 1; i > 0; i--) {
+                    var row_id = c.data.invoice_rows[i].id;
+                    
+                    c.server.get({
+                        action: 'delete_row',
+                        row_id: row_id
+                    });
+                    
+                    c.data.invoice_rows.splice(i, 1);
+                }
                 
-                c.server.get({
-                    action: 'delete_row',
-                    row_id: row_id
-                });
-                
-                c.data.invoice_rows.splice(i, 1);
+                $scope.refreshVariables();
             }
-            
-            $scope.refreshVariables();
+        } else {
+            $scope.hideAddInvoiceButton = false;
         }
-    } else {
-        console.log('[PARTIAL_PAY] Setting hideAddInvoiceButton to false');
-        $scope.hideAddInvoiceButton = false;
-    }
-});
+    });
 
     $scope.$watch(function() {
         return g_form.getValue('invoice_account_toggle');
