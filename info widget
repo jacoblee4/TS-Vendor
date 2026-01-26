@@ -1,64 +1,12 @@
-(function() {
-    data.error = false;
-    gr = new GlideRecordSecure("x_banun_submit_a_0_vendor_program_contacts");
-    if (!gr.get(gs.getUserID()) || !gs.getUser().hasRole('x_banun_submit_a_0.user')) {
-        data.error = true;
-        return;
-    }
-    var table = $sp.getParameter("table");
-    var sys_id = $sp.getParameter("sys_id");
-
-    data.title = "${Record Information}";
-
-    var gr = new GlideRecordSecure(table);
-    gr.get(sys_id);
-
-    var api = new x_banun_submit_a_0.VendorProgramPortalUtils();
-    if (!api.vendorContactHasAccess(gr))
-        return;
-
-    var fields;
-    data.title = "${Invoice Details}";
-    fields = 'requested_by,invoice_status,invoice_total,credit_memo,invoice_date,remit_to_address,memo_to_recipient,payment_notes,local_payment_date';
-
-    fields = fields.split(',');
-
-    var fieldsInfo = [];
-    for (var i = 0; i < fields.length; i++) {
-        var field = {};
-        field.name = fields[i];
-
-        if (field.name == 'requested_by' || field.name == 'invoice_status' || field.name == 'invoice_total' || field.name == 'credit_memo' || field.name == 'invoice_date') {
-            field.type = 'small_field';
-            field.label = gr[fields[i]].getLabel();
-            field.value = gr[fields[i]] + '';
-            field.display_value = gr[fields[i]].getDisplayValue();
-        } 
-		
-		// else if (field.name == 'payment_notes' || field.name == 'local_payment_date') {
-        //     var inv = new GlideRecord('x_banun_submit_a_0_invoices_from_coupa');
-        //     inv.addQuery('invoice', gr.coupa_invoice_number);
-        //     inv.query();
-
-        //     if (inv.next()) {
-        //         field.type = 'large_field';
-        //         field.label = gr[fields[i]].getLabel();
-        //         field.value = gr[fields[i]] + '';
-        //         field.display_value = gr[fields[i]].getDisplayValue();
-        //     }
-		// }
-
-        else {
-            field.type = 'large_field';
-            field.label = gr[fields[i]].getLabel();
-            field.value = gr[fields[i]] + '';
-            field.display_value = gr[fields[i]].getDisplayValue();
-        }
-
-        if (field.value) {
-            fieldsInfo.push(field);
-        }
-    }
-
-    data.fields = fieldsInfo;
-})();
+// Add partialpay_type field if partial_pay_indicator is "Yes"
+    if (gr.partial_pay_indicator == "Yes") {
+        var partialPayField = {};
+        partialPayField.name = 'partialpay_type';
+        partialPayField.type = 'small_field';
+        partialPayField.label = gr.partialpay_type.getLabel();
+        partialPayField.value = gr.partialpay_type + '';
+        partialPayField.display_value = gr.partialpay_type.getDisplayValue();
+        
+        if (partialPayField.value) {
+            fieldsInfo.push(partialPayField);
+      
