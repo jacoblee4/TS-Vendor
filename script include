@@ -1,0 +1,127 @@
+var VendorProgramPortalUtilsBase = Class.create();
+VendorProgramPortalUtilsBase.prototype = {
+    initialize: function() {},
+
+    getUserInfo: function(sys_id) {
+        return this._getUserInfo(sys_id);
+    },
+
+    getTotalNumberOfRecords: function(table, query) {
+        return this._getTotalNumberOfRecords(table, query);
+    },
+
+    getVendorTasks: function(vendorID) {
+        return this._getVendorTasks(vendorID);
+    },
+
+	getUserNameMaxLength: function() {
+		return this._getUserNameMaxLength();
+	},
+
+    vendorContactHasAccess: function(gr, userInfo) {
+        userInfo = userInfo || this._getUserInfo(gs.getUserID());
+
+        if (!userInfo.isVendorContact)
+            return false;
+
+        return true;
+    },
+
+    //Only one argument is used at a time.
+    _getVendorTasks: function(vendorID) {
+
+var userID = this._getUserInfo(gs.getUserID());
+
+		if (!vendorID && !userID)
+            return {};
+
+        var gr = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
+
+		if (vendorID) {
+            gr.addQuery('requested_by.vendor', vendorID);
+        }else if (userID) {
+            gr.addQuery('requested_by', userID);
+        }
+
+        gr.orderByDesc('sys_created_on');
+        gr.query();
+
+        var tasks = [];
+
+        while (gr.next()) {
+            if (!this.vendorContactHasAccess(gr, userID))
+                continue;
+
+            var task = {};
+            task.sys_id = gr.sys_id + '';
+            task.number = gr.number + '';
+			task.invoice_pdf_date = gr.invoice_pdf_date.getDisplayValue();
+			task.invoice_date = gr.invoice_date.getDisplayValue();
+			task.supplier_name = gr.supplier_name.getDisplayValue();
+			task.invoice_number = gr.invoice_number + '';
+			task.invoice_total = gr.invoice_total.getDisplayValue();
+			task.grand_total = gr.grand_total.getDisplayValue();
+			task.invoice_status = gr.invoice_status + '';
+			task.invoice_statusDisplay = gr.invoice_status.getDisplayValue();
+			task.requester = gr.requested_by.getDisplayValue();
+            tasks.push(task);
+        }
+        return tasks;
+    },
+
+
+    _getTotalNumberOfRecords: function(table, query) {
+        var rec = new GlideAggregate(table);
+        rec.addEncodedQuery(query);
+        rec.addAggregate('COUNT');
+        rec.query();
+        var recCount = 0;
+        if (rec.next())
+            recCount = rec.getAggregate('COUNT');
+        return recCount;
+    },
+
+    _getUserInfo: function(sys_id) {
+        var user = {};
+
+        var userID = sys_id ? sys_id : gs.getUserID();
+        user.userID = userID;
+        if (userID == '5136503cc611227c0183e96598c4f706') { //Guest
+            user.userType = 'guest';
+            return user;
+        }
+
+        //Get the user type: primary_contact, contact, non_contact
+        var gr = new GlideRecord('x_banun_submit_a_0_vendor_program_contacts');
+        if (!gr.get(userID)) {
+            user.userType = 'non_contact';
+            return user;
+        }
+
+        user.firstName = gr.first_name + '';
+        user.lastName = gr.last_name + '';
+        user.name = gr.name + '';
+        user.userName = gr.user_name + '';
+        user.companyID = gr.company + '';
+        user.company = gr.getDisplayValue('company');
+		user.vendor = gr.vendor + '';
+		user.vendorName = gr.getDisplayValue('vendor');
+		user.isVendorContact = true;
+
+        return user;
+    },
+
+	_getUserNameMaxLength: function() {
+		var defaultMaxLength = 40;
+		
+		var gr = new GlideRecord('sys_dictionary');
+		gr.addQuery('name', 'sys_user');
+		gr.addQuery('element', 'user_name');
+		gr.query();
+		if (gr.next())
+			return parseInt(gr.max_length);
+		return defaultMaxLength;
+	},
+
+    type: 'VendorProgramPortalUtilsBase'
+};
