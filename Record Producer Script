@@ -19,10 +19,14 @@ for (var i = 0; i < invoice_numbers.length; i++) {
     gr.invoice_account_toggle = producer.invoice_account_toggle;
     gr.supplier_name = supplier_name;
     gr.remit_to_address = address_line_1;
-    
+
+
     // Handle invoice number with partial payment suffixes
     var invoiceNumber = invoice_numbers[i];
-    if (producer.partial_pay_indicator == 'Yes') {
+    if (producer.partial_pay_indicator == 'Yes' && invoice_credit_variables[i] == 'invoice') {
+        gr.partialpay_type = producer.partialpay_type;
+        gr.partial_pay_indicator = producer.partial_pay_indicator;
+
         if (producer.partialpay_type == 'additional_payment') {
             invoiceNumber += '_BAL';
         } else if (producer.partialpay_type == 'final_payment') {
@@ -30,16 +34,16 @@ for (var i = 0; i < invoice_numbers.length; i++) {
         }
         // initial_payment leaves it as is (no suffix)
     }
-    
+
     gr.invoice_number = invoiceNumber;
-    
+
     // Populate invoice_total or credit_memo based on type
     if (invoice_credit_variables[i] == 'invoice') {
         gr.invoice_total = invoice_amounts[i];
     } else if (invoice_credit_variables[i] == 'credit') {
         gr.credit_memo = invoice_amounts[i];
     }
-    
+
     gr.invoice_credit_variable = invoice_credit_variables[i];
     gr.invoice_pdf_date = invoice_pdf_dates[i];
 
