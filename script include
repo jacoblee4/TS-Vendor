@@ -14,32 +14,166 @@ VendorProgramPortalUtilsBase.prototype = {
         return this._getVendorTasks(vendorID);
     },
 
-	getUserNameMaxLength: function() {
-		return this._getUserNameMaxLength();
-	},
+    getUserNameMaxLength: function() {
+        return this._getUserNameMaxLength();
+    },
 
     vendorContactHasAccess: function(gr, userInfo) {
         userInfo = userInfo || this._getUserInfo(gs.getUserID());
-
         if (!userInfo.isVendorContact)
             return false;
-
         return true;
+    },
+
+    /**
+     * Constructs the complete invoice number based on business rules
+     * @param {GlideRecord} gr - The invoice submission record
+     * @returns {String} The constructed invoice number
+     */
+    constructInvoiceNumber: function(gr) {
+        // Start with the original invoice/account number entered by user
+        var baseNumber = gr.getValue('original_invoice_number') || '';
+        
+        if (!baseNumber) {
+            gs.warn('VendorProgramPortalUtils: original_invoice_number is empty for record ' + gr.getUniqueValue());
+            return '';
+        }
+
+        var constructedNumber = baseNumber;
+
+        // Step 1: Add partial payment suffix if applicable
+        // Only for invoices (not credits) with partial pay indicator
+        if (gr.getValue('partial_pay_indicator') == 'Yes' && 
+            gr.getValue('invoice_credit_variable') == 'invoice') {
+            
+            var partialType = gr.getValue('partialpay_type');
+            
+            if (partialType == 'additional_payment') {
+                constructedNumber += '_BAL';
+            } else if (partialType == 'final_payment') {
+                constructedNumber += '_FINAL';
+            }
+            // initial_payment leaves it as is (no suffix)
+        }
+
+        // Step 2: Add _MMYY suffix if toggle is set to account_number
+        if (gr.getValue('invoice_account_toggle') == 'account_number') {
+            var mmyy = this._getMMYYFromDate(gr.getValue('invoice_pdf_date'));
+            if (mmyy) {
+                constructedNumber += '_' + mmyy;
+            }
+        }
+
+        // Step 3: Ensure uniqueness by checking for duplicates and appending letters
+        var uniqueNumber = this.getUniqueInvoiceNumber(constructedNumber, gr.getUniqueValue());
+
+        return uniqueNumber;
+    },
+
+    /**
+     * Ensures the invoice number is unique by appending letters (A, B, C...) if needed
+     * @param {String} proposedNumber - The proposed invoice number before duplicate checking
+     * @param {String} currentSysId - The sys_id of the current record (to exclude from duplicate check)
+     * @returns {String} A unique invoice number
+     */
+    getUniqueInvoiceNumber: function(proposedNumber, currentSysId) {
+        var invoiceNumber = proposedNumber;
+        var isDuplicate = true;
+
+        // Keep checking and appending letters until we find a unique number
+        while (isDuplicate) {
+            isDuplicate = this._isDuplicateInvoiceNumber(invoiceNumber, currentSysId);
+            
+            if (isDuplicate) {
+                invoiceNumber = this._appendNextLetter(invoiceNumber);
+            }
+        }
+
+        return invoiceNumber;
+    },
+
+    /**
+     * Checks if the invoice number already exists in the system
+     * @param {String} invoiceNumber - The invoice number to check
+     * @param {String} currentSysId - The sys_id of the current record to exclude
+     * @returns {Boolean} True if duplicate exists, false otherwise
+     */
+    _isDuplicateInvoiceNumber: function(invoiceNumber, currentSysId) {
+        var gr = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
+        gr.addQuery('invoice_number', invoiceNumber);
+        
+        // Exclude the current record from duplicate check
+        if (currentSysId) {
+            gr.addQuery('sys_id', '!=', currentSysId);
+        }
+        
+        // Exclude rejected records from duplicate check
+        gr.addQuery('approval', '!=', 'rejected');
+        gr.query();
+
+        return gr.hasNext();
+    },
+
+    /**
+     * Appends the next letter in sequence to the invoice number
+     * @param {String} invoiceNumber - The current invoice number
+     * @returns {String} Invoice number with next letter appended
+     */
+    _appendNextLetter: function(invoiceNumber) {
+        // Check if the last character is already a letter
+        var lastChar = invoiceNumber.slice(-1);
+
+        if (lastChar.match(/[A-Z]/)) {
+            // If last char is a letter, increment it (A->B, B->C, etc.)
+            var nextChar = String.fromCharCode(lastChar.charCodeAt(0) + 1);
+            
+            // Handle Z overflow (Z -> AA)
+            if (nextChar > 'Z') {
+                // For simplicity, append another A after Z
+                // Z -> ZA, ZA -> ZB, etc.
+                return invoiceNumber + 'A';
+            }
+            
+            return invoiceNumber.slice(0, -1) + nextChar;
+        } else {
+            // No letter at end, append 'A'
+            return invoiceNumber + 'A';
+        }
+    },
+
+    /**
+     * Converts a date to MMYY format
+     * @param {String} dateValue - The date value from invoice_pdf_date
+     * @returns {String} Date in MMYY format (e.g., "0125" for January 2025)
+     */
+    _getMMYYFromDate: function(dateValue) {
+        if (!dateValue) {
+            return '';
+        }
+
+        var gdt = new GlideDateTime(dateValue);
+        var month = gdt.getMonthLocalTime().toString();
+        var year = gdt.getYearLocalTime().toString();
+
+        // Pad month to 2 digits and get last 2 digits of year
+        month = month.length == 1 ? '0' + month : month;
+        year = year.slice(-2);
+
+        return month + year;
     },
 
     //Only one argument is used at a time.
     _getVendorTasks: function(vendorID) {
+        var userID = this._getUserInfo(gs.getUserID());
 
-var userID = this._getUserInfo(gs.getUserID());
-
-		if (!vendorID && !userID)
+        if (!vendorID && !userID)
             return {};
 
         var gr = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
 
-		if (vendorID) {
+        if (vendorID) {
             gr.addQuery('requested_by.vendor', vendorID);
-        }else if (userID) {
+        } else if (userID) {
             gr.addQuery('requested_by', userID);
         }
 
@@ -55,20 +189,19 @@ var userID = this._getUserInfo(gs.getUserID());
             var task = {};
             task.sys_id = gr.sys_id + '';
             task.number = gr.number + '';
-			task.invoice_pdf_date = gr.invoice_pdf_date.getDisplayValue();
-			task.invoice_date = gr.invoice_date.getDisplayValue();
-			task.supplier_name = gr.supplier_name.getDisplayValue();
-			task.invoice_number = gr.invoice_number + '';
-			task.invoice_total = gr.invoice_total.getDisplayValue();
-			task.grand_total = gr.grand_total.getDisplayValue();
-			task.invoice_status = gr.invoice_status + '';
-			task.invoice_statusDisplay = gr.invoice_status.getDisplayValue();
-			task.requester = gr.requested_by.getDisplayValue();
+            task.invoice_pdf_date = gr.invoice_pdf_date.getDisplayValue();
+            task.invoice_date = gr.invoice_date.getDisplayValue();
+            task.supplier_name = gr.supplier_name.getDisplayValue();
+            task.invoice_number = gr.invoice_number + '';
+            task.invoice_total = gr.invoice_total.getDisplayValue();
+            task.grand_total = gr.grand_total.getDisplayValue();
+            task.invoice_status = gr.invoice_status + '';
+            task.invoice_statusDisplay = gr.invoice_status.getDisplayValue();
+            task.requester = gr.requested_by.getDisplayValue();
             tasks.push(task);
         }
         return tasks;
     },
-
 
     _getTotalNumberOfRecords: function(table, query) {
         var rec = new GlideAggregate(table);
@@ -104,24 +237,24 @@ var userID = this._getUserInfo(gs.getUserID());
         user.userName = gr.user_name + '';
         user.companyID = gr.company + '';
         user.company = gr.getDisplayValue('company');
-		user.vendor = gr.vendor + '';
-		user.vendorName = gr.getDisplayValue('vendor');
-		user.isVendorContact = true;
+        user.vendor = gr.vendor + '';
+        user.vendorName = gr.getDisplayValue('vendor');
+        user.isVendorContact = true;
 
         return user;
     },
 
-	_getUserNameMaxLength: function() {
-		var defaultMaxLength = 40;
-		
-		var gr = new GlideRecord('sys_dictionary');
-		gr.addQuery('name', 'sys_user');
-		gr.addQuery('element', 'user_name');
-		gr.query();
-		if (gr.next())
-			return parseInt(gr.max_length);
-		return defaultMaxLength;
-	},
+    _getUserNameMaxLength: function() {
+        var defaultMaxLength = 40;
+
+        var gr = new GlideRecord('sys_dictionary');
+        gr.addQuery('name', 'sys_user');
+        gr.addQuery('element', 'user_name');
+        gr.query();
+        if (gr.next())
+            return parseInt(gr.max_length);
+        return defaultMaxLength;
+    },
 
     type: 'VendorProgramPortalUtilsBase'
 };
