@@ -77,19 +77,42 @@ VendorProgramPortalUtilsBase.prototype = {
      * @returns {String} A unique invoice number
      */
     getUniqueInvoiceNumber: function(proposedNumber, currentSysId) {
-        var invoiceNumber = proposedNumber;
-        var isDuplicate = true;
-
+        var baseNumber = proposedNumber;  // This is the fully constructed number (123_BAL, 123_0125, etc.)
+        var duplicateSuffix = '';          // We append A, B, C here for duplicates
+        
         // Keep checking and appending letters until we find a unique number
-        while (isDuplicate) {
-            isDuplicate = this._isDuplicateInvoiceNumber(invoiceNumber, currentSysId);
-            
-            if (isDuplicate) {
-                invoiceNumber = this._appendNextLetter(invoiceNumber);
-            }
+        while (this._isDuplicateInvoiceNumber(baseNumber + duplicateSuffix, currentSysId)) {
+            duplicateSuffix = this._getNextDuplicateSuffix(duplicateSuffix);
         }
+        
+        return baseNumber + duplicateSuffix;
+    },
 
-        return invoiceNumber;
+    /**
+     * Gets the next duplicate suffix letter (A -> B -> C ... Z -> AA -> AB...)
+     * @param {String} currentSuffix - The current duplicate suffix (empty string, 'A', 'B', etc.)
+     * @returns {String} The next suffix in sequence
+     */
+    _getNextDuplicateSuffix: function(currentSuffix) {
+        // If no suffix yet, start with 'A'
+        if (!currentSuffix || currentSuffix.length === 0) {
+            return 'A';
+        }
+        
+        var lastChar = currentSuffix.slice(-1);
+        
+        // If last character is A-Y, increment it
+        if (lastChar >= 'A' && lastChar < 'Z') {
+            var nextChar = String.fromCharCode(lastChar.charCodeAt(0) + 1);
+            return currentSuffix.slice(0, -1) + nextChar;
+        } 
+        // If last character is Z, append another A (Z -> ZA -> ZB... or A -> AA)
+        else if (lastChar == 'Z') {
+            return currentSuffix + 'A';
+        }
+        
+        // Fallback - should never reach here
+        return currentSuffix + 'A';
     },
 
     /**
@@ -112,33 +135,6 @@ VendorProgramPortalUtilsBase.prototype = {
         gr.query();
 
         return gr.hasNext();
-    },
-
-    /**
-     * Appends the next letter in sequence to the invoice number
-     * @param {String} invoiceNumber - The current invoice number
-     * @returns {String} Invoice number with next letter appended
-     */
-    _appendNextLetter: function(invoiceNumber) {
-        // Check if the last character is already a letter
-        var lastChar = invoiceNumber.slice(-1);
-
-        if (lastChar.match(/[A-Z]/)) {
-            // If last char is a letter, increment it (A->B, B->C, etc.)
-            var nextChar = String.fromCharCode(lastChar.charCodeAt(0) + 1);
-            
-            // Handle Z overflow (Z -> AA)
-            if (nextChar > 'Z') {
-                // For simplicity, append another A after Z
-                // Z -> ZA, ZA -> ZB, etc.
-                return invoiceNumber + 'A';
-            }
-            
-            return invoiceNumber.slice(0, -1) + nextChar;
-        } else {
-            // No letter at end, append 'A'
-            return invoiceNumber + 'A';
-        }
     },
 
     /**
