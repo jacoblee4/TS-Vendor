@@ -19,23 +19,16 @@ for (var i = 0; i < invoice_numbers.length; i++) {
     gr.invoice_account_toggle = producer.invoice_account_toggle;
     gr.supplier_name = supplier_name;
     gr.remit_to_address = address_line_1;
+    gr.invoice_pdf_date = invoice_pdf_dates[i];
 
-
-    // Handle invoice number with partial payment suffixes
-    var invoiceNumber = invoice_numbers[i];
+    // Store the original number entered by user
+    gr.original_invoice_number = invoice_numbers[i];
+    
+    // Set partial payment fields - Business Rule will use these to construct invoice_number
     if (producer.partial_pay_indicator == 'Yes' && invoice_credit_variables[i] == 'invoice') {
         gr.partialpay_type = producer.partialpay_type;
         gr.partial_pay_indicator = producer.partial_pay_indicator;
-
-        if (producer.partialpay_type == 'additional_payment') {
-            invoiceNumber += '_BAL';
-        } else if (producer.partialpay_type == 'final_payment') {
-            invoiceNumber += '_FINAL';
-        }
-        // initial_payment leaves it as is (no suffix)
     }
-
-    gr.invoice_number = invoiceNumber;
 
     // Populate invoice_total or credit_memo based on type
     if (invoice_credit_variables[i] == 'invoice') {
@@ -45,8 +38,8 @@ for (var i = 0; i < invoice_numbers.length; i++) {
     }
 
     gr.invoice_credit_variable = invoice_credit_variables[i];
-    gr.invoice_pdf_date = invoice_pdf_dates[i];
 
+    // Insert - Business Rule will automatically set invoice_number
     var invoice_id = gr.insert();
 
     invoice_lines.push(invoice_id);
