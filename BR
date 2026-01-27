@@ -1,37 +1,25 @@
-(function executeRule(current, previous /*null when async*/ ) {
-
-    // Create the Invoice Number
-    var invoiceNumber = current.invoice_number.getDisplayValue();
-
-    // Check if the invoice number alreaedy exists
-    function isDuplicate(invoiceNumber) {
-        var gr = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
-        gr.addQuery('invoice_number', invoiceNumber);
-		gr.addQuery('sys_id', '!=', current.sys_id);
-		gr.addQuery('approval', '!=', 'rejected');
-        gr.query();
-
-        return gr.hasNext();
-    }
-
-    //Append char if needed to
-    function appendChar(invoiceNumber) {
-        var lastChar = invoiceNumber.slice(-1);
-
-        if (lastChar.match(/[A-Z]/)) {
-            var nextChar = String.fromCharCode(lastChar.charCodeAt(0) + 1);
-            invoiceNumber = invoiceNumber.slice(0, -1) + nextChar;
+(function executeRule(current, previous /*null when async*/) {
+    
+    // Only proceed if we have an original invoice number
+    if (!current.original_invoice_number) {
+        // If invoice_number exists but original doesn't, copy it over (data migration scenario)
+        if (current.invoice_number) {
+            current.original_invoice_number = current.invoice_number;
         } else {
-            invoiceNumber = invoiceNumber + 'A';
+            gs.warn('Invoice submission ' + current.number + ' is missing original_invoice_number');
+            return;
         }
-        return invoiceNumber;
     }
 
-    // Set the Coupa Invoice Number and Append a char if needed to
-    while (isDuplicate(invoiceNumber)) {
-        invoiceNumber = appendChar(invoiceNumber);
-    }
-
-    current.invoice_number = invoiceNumber;
+    // Use the Script Include to construct the invoice number
+    var utils = new VendorProgramPortalUtilsBase();
+    var constructedNumber = utils.constructInvoiceNumber(current);
+    
+    // Set the invoice_number field
+    current.invoice_number = constructedNumber;
+    
+    // Log for debugging (optional - remove in production if desired)
+    gs.info('Invoice Number Set: ' + current.number + ' -> ' + constructedNumber + 
+            ' (Original: ' + current.original_invoice_number + ')');
 
 })(current, previous);
