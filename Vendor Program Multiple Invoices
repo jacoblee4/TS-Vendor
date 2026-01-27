@@ -483,6 +483,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             }
         }
         
+        // NO MORE _MMYY LOGIC - just pass the raw invoice number
         invoice_numbers += invRow.invoice_number + ',';
         invoice_amounts += invRow.invoice_amount + ',';
         attachment_ids += invRow.id + ',';
@@ -490,11 +491,10 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         invoice_credit_variables += 'invoice,';
     }
 
-    // Process credit rows
+    // Process credit rows (same - no transformation)
     for (var j = 0; j < c.data.credit_rows.length; j++) {
         var credRow = c.data.credit_rows[j];
         
-        // Convert Date object to YYYY-MM-DD string
         var creditDateString = '';
         if (credRow.invoice_pdf_date) {
             if (credRow.invoice_pdf_date instanceof Date) {
