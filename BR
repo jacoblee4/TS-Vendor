@@ -1,0 +1,37 @@
+(function executeRule(current, previous /*null when async*/ ) {
+
+    // Create the Invoice Number
+    var invoiceNumber = current.invoice_number.getDisplayValue();
+
+    // Check if the invoice number alreaedy exists
+    function isDuplicate(invoiceNumber) {
+        var gr = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
+        gr.addQuery('invoice_number', invoiceNumber);
+		gr.addQuery('sys_id', '!=', current.sys_id);
+		gr.addQuery('approval', '!=', 'rejected');
+        gr.query();
+
+        return gr.hasNext();
+    }
+
+    //Append char if needed to
+    function appendChar(invoiceNumber) {
+        var lastChar = invoiceNumber.slice(-1);
+
+        if (lastChar.match(/[A-Z]/)) {
+            var nextChar = String.fromCharCode(lastChar.charCodeAt(0) + 1);
+            invoiceNumber = invoiceNumber.slice(0, -1) + nextChar;
+        } else {
+            invoiceNumber = invoiceNumber + 'A';
+        }
+        return invoiceNumber;
+    }
+
+    // Set the Coupa Invoice Number and Append a char if needed to
+    while (isDuplicate(invoiceNumber)) {
+        invoiceNumber = appendChar(invoiceNumber);
+    }
+
+    current.invoice_number = invoiceNumber;
+
+})(current, previous);
