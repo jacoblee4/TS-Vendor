@@ -95,7 +95,6 @@
 
 
 
-
 // CSS
 
 .attachment-btn {
@@ -258,28 +257,6 @@
             return v.toString(16);
         });
     }
-	function isDateFilled(dateValue) {
-    if (!dateValue) return false;
-    if (dateValue === '') return false;
-    // Handle Date objects
-    if (dateValue instanceof Date) {
-        return !isNaN(dateValue.getTime());
-    }
-    // Handle date strings
-    if (typeof dateValue === 'string') {
-        return dateValue.length > 0 && dateValue !== 'mm/dd/yyyy';
-    }
-    return false;
-}
-
-function isAmountFilled(amount, type) {
-    if (!amount || amount === '') return false;
-    // For credits, don't consider just "-" as filled
-    if (type === 'credit' && amount === '-') return false;
-    // Check if it has actual numeric content
-    var cleanAmount = amount.replace(/[,$-]/g, '');
-    return cleanAmount.length > 0;
-}
 })();
 
 
@@ -289,9 +266,35 @@ function isAmountFilled(amount, type) {
 
 api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     var c = this;
-$scope.isDateFilled = isDateFilled;
-$scope.isAmountFilled = isAmountFilled;
     var g_form = $scope.page.g_form;
+
+    // Helper functions for mandatory field validation
+    function isDateFilled(dateValue) {
+        if (!dateValue) return false;
+        if (dateValue === '') return false;
+        // Handle Date objects
+        if (dateValue instanceof Date) {
+            return !isNaN(dateValue.getTime());
+        }
+        // Handle date strings
+        if (typeof dateValue === 'string') {
+            return dateValue.length > 0 && dateValue !== 'mm/dd/yyyy';
+        }
+        return false;
+    }
+
+    function isAmountFilled(amount, type) {
+        if (!amount || amount === '') return false;
+        // For credits, don't consider just "-" as filled
+        if (type === 'credit' && amount === '-') return false;
+        // Check if it has actual numeric content
+        var cleanAmount = amount.replace(/[,$-]/g, '');
+        return cleanAmount.length > 0;
+    }
+
+    // Expose helper functions to scope for use in HTML template
+    $scope.isDateFilled = isDateFilled;
+    $scope.isAmountFilled = isAmountFilled;
 
     $scope.showTotalError = false;
     $scope.currentTotal = '$0.00';
@@ -456,110 +459,110 @@ $scope.isAmountFilled = isAmountFilled;
     }
 
     function refreshMandatoryFilled() {
-    var invoice_mandatory_filled = 0;
-    var credit_mandatory_filled = 0;
+        var invoice_mandatory_filled = 0;
+        var credit_mandatory_filled = 0;
 
-    for (var i = 0; i < c.data.invoice_rows.length; i++) {
-        var row = c.data.invoice_rows[i];
-        if (isDateFilled(row.invoice_pdf_date) && 
-            row.invoice_number != '' && 
-            isAmountFilled(row.invoice_amount, 'invoice') && 
-            row.attachmentCount > 0) {
-            invoice_mandatory_filled++;
-        }
-    }
-
-    for (var j = 0; j < c.data.credit_rows.length; j++) {
-        var creditRow = c.data.credit_rows[j];
-        if (isDateFilled(creditRow.invoice_pdf_date) && 
-            creditRow.invoice_number != '' && 
-            isAmountFilled(creditRow.invoice_amount, 'credit') && 
-            creditRow.attachmentCount > 0) {
-            credit_mandatory_filled++;
-        }
-    }
-
-    var allInvoicesFilled = (invoice_mandatory_filled == c.data.invoice_rows.length);
-    var allCreditsFilled = (c.data.credit_rows.length === 0 || credit_mandatory_filled == c.data.credit_rows.length);
-    
-    g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError));
-}
-
-   $scope.refreshVariables = function() {
-    var invoiceAccountToggle = g_form.getValue('invoice_account_toggle');
-
-    var invoice_numbers = '';
-    var invoice_amounts = '';
-    var attachment_ids = '';
-    var invoice_pdf_dates = '';
-    var invoice_credit_variables = '';
-
-    // Process invoice rows
-    for (var i = 0; i < c.data.invoice_rows.length; i++) {
-        var invRow = c.data.invoice_rows[i];
-        
-        // Convert Date object to YYYY-MM-DD string
-        var dateString = '';
-        if (invRow.invoice_pdf_date) {
-            if (invRow.invoice_pdf_date instanceof Date) {
-                var d = invRow.invoice_pdf_date;
-                var month = String(d.getMonth() + 1).padStart(2, '0');
-                var day = String(d.getDate()).padStart(2, '0');
-                var year = d.getFullYear();
-                dateString = year + '-' + month + '-' + day;
-            } else {
-                dateString = invRow.invoice_pdf_date;
+        for (var i = 0; i < c.data.invoice_rows.length; i++) {
+            var row = c.data.invoice_rows[i];
+            if (isDateFilled(row.invoice_pdf_date) && 
+                row.invoice_number != '' && 
+                isAmountFilled(row.invoice_amount, 'invoice') && 
+                row.attachmentCount > 0) {
+                invoice_mandatory_filled++;
             }
         }
-        
-        // NO MORE _MMYY LOGIC - just pass the raw invoice number
-        invoice_numbers += invRow.invoice_number + ',';
-        invoice_amounts += invRow.invoice_amount + ',';
-        attachment_ids += invRow.id + ',';
-        invoice_pdf_dates += dateString + ',';
-        invoice_credit_variables += 'invoice,';
-    }
 
-    // Process credit rows (same - no transformation)
-    for (var j = 0; j < c.data.credit_rows.length; j++) {
-        var credRow = c.data.credit_rows[j];
-        
-        var creditDateString = '';
-        if (credRow.invoice_pdf_date) {
-            if (credRow.invoice_pdf_date instanceof Date) {
-                var d = credRow.invoice_pdf_date;
-                var month = String(d.getMonth() + 1).padStart(2, '0');
-                var day = String(d.getDate()).padStart(2, '0');
-                var year = d.getFullYear();
-                creditDateString = year + '-' + month + '-' + day;
-            } else {
-                creditDateString = credRow.invoice_pdf_date;
+        for (var j = 0; j < c.data.credit_rows.length; j++) {
+            var creditRow = c.data.credit_rows[j];
+            if (isDateFilled(creditRow.invoice_pdf_date) && 
+                creditRow.invoice_number != '' && 
+                isAmountFilled(creditRow.invoice_amount, 'credit') && 
+                creditRow.attachmentCount > 0) {
+                credit_mandatory_filled++;
             }
         }
+
+        var allInvoicesFilled = (invoice_mandatory_filled == c.data.invoice_rows.length);
+        var allCreditsFilled = (c.data.credit_rows.length === 0 || credit_mandatory_filled == c.data.credit_rows.length);
         
-        invoice_numbers += credRow.invoice_number + ',';
-        invoice_amounts += credRow.invoice_amount + ',';
-        attachment_ids += credRow.id + ',';
-        invoice_pdf_dates += creditDateString + ',';
-        invoice_credit_variables += 'credit,';
+        g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError));
     }
 
-    // Remove trailing commas
-    invoice_numbers = invoice_numbers.slice(0, -1);
-    invoice_amounts = invoice_amounts.slice(0, -1);
-    attachment_ids = attachment_ids.slice(0, -1);
-    invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
-    invoice_credit_variables = invoice_credit_variables.slice(0, -1);
+    $scope.refreshVariables = function() {
+        var invoiceAccountToggle = g_form.getValue('invoice_account_toggle');
 
-    g_form.setValue('invoice_numbers', invoice_numbers);
-    g_form.setValue('invoice_amounts', invoice_amounts);
-    g_form.setValue('attachment_ids', attachment_ids);
-    g_form.setValue('invoice_pdf_dates', invoice_pdf_dates);
-    g_form.setValue('invoice_credit_variables', invoice_credit_variables);
+        var invoice_numbers = '';
+        var invoice_amounts = '';
+        var attachment_ids = '';
+        var invoice_pdf_dates = '';
+        var invoice_credit_variables = '';
 
-    calculateTotal();
-    refreshMandatoryFilled();
-};
+        // Process invoice rows
+        for (var i = 0; i < c.data.invoice_rows.length; i++) {
+            var invRow = c.data.invoice_rows[i];
+            
+            // Convert Date object to YYYY-MM-DD string
+            var dateString = '';
+            if (invRow.invoice_pdf_date) {
+                if (invRow.invoice_pdf_date instanceof Date) {
+                    var d = invRow.invoice_pdf_date;
+                    var month = String(d.getMonth() + 1).padStart(2, '0');
+                    var day = String(d.getDate()).padStart(2, '0');
+                    var year = d.getFullYear();
+                    dateString = year + '-' + month + '-' + day;
+                } else {
+                    dateString = invRow.invoice_pdf_date;
+                }
+            }
+            
+            // NO MORE _MMYY LOGIC - just pass the raw invoice number
+            invoice_numbers += invRow.invoice_number + ',';
+            invoice_amounts += invRow.invoice_amount + ',';
+            attachment_ids += invRow.id + ',';
+            invoice_pdf_dates += dateString + ',';
+            invoice_credit_variables += 'invoice,';
+        }
+
+        // Process credit rows (same - no transformation)
+        for (var j = 0; j < c.data.credit_rows.length; j++) {
+            var credRow = c.data.credit_rows[j];
+            
+            var creditDateString = '';
+            if (credRow.invoice_pdf_date) {
+                if (credRow.invoice_pdf_date instanceof Date) {
+                    var d = credRow.invoice_pdf_date;
+                    var month = String(d.getMonth() + 1).padStart(2, '0');
+                    var day = String(d.getDate()).padStart(2, '0');
+                    var year = d.getFullYear();
+                    creditDateString = year + '-' + month + '-' + day;
+                } else {
+                    creditDateString = credRow.invoice_pdf_date;
+                }
+            }
+            
+            invoice_numbers += credRow.invoice_number + ',';
+            invoice_amounts += credRow.invoice_amount + ',';
+            attachment_ids += credRow.id + ',';
+            invoice_pdf_dates += creditDateString + ',';
+            invoice_credit_variables += 'credit,';
+        }
+
+        // Remove trailing commas
+        invoice_numbers = invoice_numbers.slice(0, -1);
+        invoice_amounts = invoice_amounts.slice(0, -1);
+        attachment_ids = attachment_ids.slice(0, -1);
+        invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
+        invoice_credit_variables = invoice_credit_variables.slice(0, -1);
+
+        g_form.setValue('invoice_numbers', invoice_numbers);
+        g_form.setValue('invoice_amounts', invoice_amounts);
+        g_form.setValue('attachment_ids', attachment_ids);
+        g_form.setValue('invoice_pdf_dates', invoice_pdf_dates);
+        g_form.setValue('invoice_credit_variables', invoice_credit_variables);
+
+        calculateTotal();
+        refreshMandatoryFilled();
+    };
 
     function calculateTotal() {
         var total = 0;
