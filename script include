@@ -57,7 +57,7 @@ VendorProgramPortalUtilsBase.prototype = {
         }
 
         // Step 2: Add _MMYY suffix if toggle is set to account_number
-        if (gr.getValue('invoice_account_toggle') == 'account_number') {
+        if (gr.getValue('invoice_account_toggle') == 'account_number' && gr.getValue('invoice_credit_variable') != 'credit') {
             var mmyy = this._getMMYYFromDate(gr.getValue('invoice_pdf_date'));
             if (mmyy) {
                 constructedNumber += '_' + mmyy;
