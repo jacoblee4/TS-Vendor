@@ -4,7 +4,7 @@
 <div class="form-group" ng-repeat="row in data.invoice_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
-  <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
+  <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': isDateFilled(row.invoice_pdf_date)}"
         title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
         aria-hidden="false"></span>
   <label>Invoice Date</label>
@@ -20,7 +20,7 @@
   </div>
   
   <div style="margin-top:7px;">
-    <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_amount != ''}"
+    <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': isAmountFilled(row.invoice_amount, 'invoice')}"
           title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
           aria-hidden="false"></span>
     <label>Invoice/Account Amount</label>
@@ -48,7 +48,7 @@
 <div class="form-group" ng-repeat="row in data.credit_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
-  <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_pdf_date != ''}"
+  <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': isDateFilled(row.invoice_pdf_date)}"
         title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
         aria-hidden="false"></span>
   <label>Invoice date</label>
@@ -64,7 +64,7 @@
   </div>
   
   <div style="margin-top:7px;">
-    <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_amount != ''}"
+    <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': isAmountFilled(row.invoice_amount, 'credit')}"
           title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
           aria-hidden="false"></span>
     <label>Credit Memo Amount</label>
@@ -258,6 +258,28 @@
             return v.toString(16);
         });
     }
+	function isDateFilled(dateValue) {
+    if (!dateValue) return false;
+    if (dateValue === '') return false;
+    // Handle Date objects
+    if (dateValue instanceof Date) {
+        return !isNaN(dateValue.getTime());
+    }
+    // Handle date strings
+    if (typeof dateValue === 'string') {
+        return dateValue.length > 0 && dateValue !== 'mm/dd/yyyy';
+    }
+    return false;
+}
+
+function isAmountFilled(amount, type) {
+    if (!amount || amount === '') return false;
+    // For credits, don't consider just "-" as filled
+    if (type === 'credit' && amount === '-') return false;
+    // Check if it has actual numeric content
+    var cleanAmount = amount.replace(/[,$-]/g, '');
+    return cleanAmount.length > 0;
+}
 })();
 
 
@@ -267,6 +289,8 @@
 
 api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     var c = this;
+$scope.isDateFilled = isDateFilled;
+$scope.isAmountFilled = isAmountFilled;
     var g_form = $scope.page.g_form;
 
     $scope.showTotalError = false;
@@ -432,28 +456,34 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     }
 
     function refreshMandatoryFilled() {
-        var invoice_mandatory_filled = 0;
-        var credit_mandatory_filled = 0;
+    var invoice_mandatory_filled = 0;
+    var credit_mandatory_filled = 0;
 
-        for (var i = 0; i < c.data.invoice_rows.length; i++) {
-            var row = c.data.invoice_rows[i];
-            if (row.invoice_pdf_date != '' && row.invoice_number != '' && row.invoice_amount != '' && row.attachmentCount > 0) {
-                invoice_mandatory_filled++;
-            }
+    for (var i = 0; i < c.data.invoice_rows.length; i++) {
+        var row = c.data.invoice_rows[i];
+        if (isDateFilled(row.invoice_pdf_date) && 
+            row.invoice_number != '' && 
+            isAmountFilled(row.invoice_amount, 'invoice') && 
+            row.attachmentCount > 0) {
+            invoice_mandatory_filled++;
         }
-
-        for (var j = 0; j < c.data.credit_rows.length; j++) {
-            var creditRow = c.data.credit_rows[j];
-            if (creditRow.invoice_number != '' && creditRow.invoice_amount != '' && creditRow.invoice_pdf_date != '' && creditRow.attachmentCount > 0) {
-                credit_mandatory_filled++;
-            }
-        }
-
-        var allInvoicesFilled = (invoice_mandatory_filled == c.data.invoice_rows.length);
-        var allCreditsFilled = (c.data.credit_rows.length === 0 || credit_mandatory_filled == c.data.credit_rows.length);
-        
-        g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError));
     }
+
+    for (var j = 0; j < c.data.credit_rows.length; j++) {
+        var creditRow = c.data.credit_rows[j];
+        if (isDateFilled(creditRow.invoice_pdf_date) && 
+            creditRow.invoice_number != '' && 
+            isAmountFilled(creditRow.invoice_amount, 'credit') && 
+            creditRow.attachmentCount > 0) {
+            credit_mandatory_filled++;
+        }
+    }
+
+    var allInvoicesFilled = (invoice_mandatory_filled == c.data.invoice_rows.length);
+    var allCreditsFilled = (c.data.credit_rows.length === 0 || credit_mandatory_filled == c.data.credit_rows.length);
+    
+    g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError));
+}
 
    $scope.refreshVariables = function() {
     var invoiceAccountToggle = g_form.getValue('invoice_account_toggle');
