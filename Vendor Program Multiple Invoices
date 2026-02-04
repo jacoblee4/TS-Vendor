@@ -49,63 +49,62 @@
       </div>
     </div>
     
-    <!-- RIGHT SIDE: Credit Section -->
-    <div class="col-md-6">
-      <div style="padding-left: 15px;">
-        <!-- Add Credit Button (shown when no credit at this index) -->
-        <div ng-if="!data.credit_rows[$index] || !data.credit_rows[$index].has_credit">
-          <button class="btn btn-danger" ng-click="addCreditAtIndex($index)">
-            <span class="glyphicon glyphicon-plus"></span> Add Credit Memo
-          </button>
-        </div>
-        
-        <!-- Credit Fields (shown when credit exists at this index) -->
-        <div ng-if="data.credit_rows[$index] && data.credit_rows[$index].has_credit">
-          <h6 style="font-weight: bold; margin-bottom: 15px;">Credit Memo Details</h6>
-          
-          <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': isDateFilled(data.credit_rows[$index].invoice_pdf_date)}"
+   <!-- RIGHT SIDE: Credit Section -->
+<div class="col-md-6">
+  <div style="padding-left: 15px;">
+    <!-- Add Credit Button (shown when no credit at this index) -->
+    <div ng-show="!data.credit_rows[$index] || !data.credit_rows[$index].has_credit">
+      <button class="btn btn-danger" ng-click="addCreditAtIndex($index)">
+        <span class="glyphicon glyphicon-plus"></span> Add Credit Memo
+      </button>
+    </div>
+    
+    <!-- Credit Fields (shown when credit exists at this index) -->
+    <div ng-show="data.credit_rows[$index] && data.credit_rows[$index].has_credit">
+      <h6 style="font-weight: bold; margin-bottom: 15px;">Credit Memo Details</h6>
+      
+      <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': isDateFilled(data.credit_rows[$index].invoice_pdf_date)}"
+            title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
+      <label>Invoice Date</label>
+      <div class="info-text">Enter the Invoice Date located on the PDF</div>
+      <input type="date" class="form-control" ng-model="data.credit_rows[$index].invoice_pdf_date" ng-change="refreshVariables()"/>
+      
+      <div style="margin-top:7px;">
+        <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': data.credit_rows[$index].invoice_number != ''}"
+              title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
+        <label>Credit Memo Invoice/Account Number</label>
+        <input type="text" class="form-control" ng-model="data.credit_rows[$index].invoice_number" ng-change="refreshVariables()"/>
+      </div>
+      
+      <div style="margin-top:7px;">
+        <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': isAmountFilled(data.credit_rows[$index].invoice_amount, 'credit')}"
+              title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
+        <label>Credit Memo Amount</label>
+        <input type="text" class="form-control" ng-model="data.credit_rows[$index].invoice_amount" 
+               ng-change="refreshVariables()" 
+               ng-blur="validateCurrency(data.credit_rows[$index].invoice_amount, 'invoiceAmount', data.credit_rows[$index].id, 'credit', $index)"/>
+        <div class="error-message" ng-show="data.credit_rows[$index].show_invoice_error">{{data.credit_rows[$index].invoice_error}}</div>
+      </div>
+      
+      <div class="text-right" style="margin-top:15px;">
+        <button class="panel-button sp-attachment-add btn btn-link attachment-btn"
+                ng-click="setCurrentID(data.credit_rows[$index].id, $event);">
+          <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': data.credit_rows[$index].attachmentCount > 0}"
                 title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
-          <label>Invoice Date</label>
-          <div class="info-text">Enter the Invoice Date located on the PDF</div>
-          <input type="date" class="form-control" ng-model="data.credit_rows[$index].invoice_pdf_date" ng-change="refreshVariables()"/>
-          
-          <div style="margin-top:7px;">
-            <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': data.credit_rows[$index].invoice_number != ''}"
-                  title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
-            <label>Credit Memo Invoice/Account Number</label>
-            <input type="text" class="form-control" ng-model="data.credit_rows[$index].invoice_number" ng-change="refreshVariables()"/>
-          </div>
-          
-          <div style="margin-top:7px;">
-            <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': isAmountFilled(data.credit_rows[$index].invoice_amount, 'credit')}"
-                  title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
-            <label>Credit Memo Amount</label>
-            <input type="text" class="form-control" ng-model="data.credit_rows[$index].invoice_amount" 
-                   ng-change="refreshVariables()" 
-                   ng-blur="validateCurrency(data.credit_rows[$index].invoice_amount, 'invoiceAmount', data.credit_rows[$index].id, 'credit', $index)"/>
-            <div class="error-message" ng-show="data.credit_rows[$index].show_invoice_error">{{data.credit_rows[$index].invoice_error}}</div>
-          </div>
-          
-          <div class="text-right" style="margin-top:15px;">
-            <button class="panel-button sp-attachment-add btn btn-link attachment-btn"
-                    ng-click="setCurrentID(data.credit_rows[$index].id, $event);">
-              <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': data.credit_rows[$index].attachmentCount > 0}"
-                    title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
-              <span class="glyphicon glyphicon-paperclip">
-                <span class="badge badge-error" ng-if="data.credit_rows[$index].attachmentCount > 0">{{data.credit_rows[$index].attachmentCount}}</span>
-              </span>
-            </button>
-          </div>
-          
-          <div style="margin-top:15px;">
-            <button class="btn btn-warning btn-sm" ng-click="removeCreditAtIndex($index)">
-              <span class="glyphicon glyphicon-remove"></span> Remove Credit Memo
-            </button>
-          </div>
-        </div>
+          <span class="glyphicon glyphicon-paperclip">
+            <span class="badge badge-error" ng-if="data.credit_rows[$index].attachmentCount > 0">{{data.credit_rows[$index].attachmentCount}}</span>
+          </span>
+        </button>
+      </div>
+      
+      <div style="margin-top:15px;">
+        <button class="btn btn-warning btn-sm" ng-click="removeCreditAtIndex($index)">
+          <span class="glyphicon glyphicon-remove"></span> Remove Credit Memo
+        </button>
       </div>
     </div>
   </div>
+</div>
   
   <!-- Per-group error message -->
   <div class="warning-bubble" ng-show="data.credit_rows[$index] && data.credit_rows[$index].show_group_error" style="margin-top: 15px;">
