@@ -107,10 +107,10 @@
     </div>
   </div>
   
-  <!-- Per-group error message -->
+<!-- Per-group error message -->
   <div class="warning-bubble" ng-show="group.show_group_error" style="margin-top: 15px;">
     <span class="glyphicon glyphicon-warning-sign" style="margin-right: 8px;"></span>
-    Credit amount cannot exceed invoice amount in this group.
+    The credit amount cannot exceed invoice amount. Current total: <strong>{{group.currentTotal}}</strong>
   </div>
   
   <!-- Delete Invoice Group Button -->
@@ -685,20 +685,25 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     }
 
     function validateGroup(group) {
-        if (group.has_credit) {
-            var invoiceAmt = parseFloat(group.invoice_amount.replace(/[,$]/g, '')) || 0;
-            var creditAmt = parseFloat(group.credit_amount.replace(/[,$]/g, '')) || 0;
-            
-            // Credit is negative, check if absolute value exceeds invoice
-            if (Math.abs(creditAmt) > invoiceAmt) {
-                group.show_group_error = true;
-            } else {
-                group.show_group_error = false;
-            }
+    if (group.has_credit) {
+        var invoiceAmt = parseFloat(group.invoice_amount.replace(/[,$]/g, '')) || 0;
+        var creditAmt = parseFloat(group.credit_amount.replace(/[,$]/g, '')) || 0;
+        
+        // Calculate current total for this group
+        var total = invoiceAmt + creditAmt;
+        group.currentTotal = '$' + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        
+        // Credit is negative, check if absolute value exceeds invoice
+        if (Math.abs(creditAmt) > invoiceAmt) {
+            group.show_group_error = true;
         } else {
             group.show_group_error = false;
         }
+    } else {
+        group.show_group_error = false;
+        group.currentTotal = '';
     }
+}
 
     $scope.validateCurrency = function(value, type, id) {
         var currencyRegex = /^-?(((\d{1,3},?)(\d{3},?)+|\d{1,3})|\d+)(\.\d{2})?$/;
