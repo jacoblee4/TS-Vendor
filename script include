@@ -25,50 +25,50 @@ VendorProgramPortalUtilsBase.prototype = {
         return true;
     },
 
-   /**
- * Constructs the complete invoice number based on business rules
- * @param {GlideRecord} gr - The invoice submission record
- * @returns {String} The constructed invoice number
- */
-constructInvoiceNumber: function(gr) {
-    // Start with the original invoice/account number entered by user
-    var baseNumber = gr.getValue('original_invoice_number') || '';
-    
-    if (!baseNumber) {
-        gs.warn('VendorProgramPortalUtils: original_invoice_number is empty for record ' + gr.getUniqueValue());
-        return '';
-    }
+    /**
+     * Constructs the complete invoice number based on business rules
+     * @param {GlideRecord} gr - The invoice submission record
+     * @returns {String} The constructed invoice number
+     */
+    constructInvoiceNumber: function(gr) {
+        // Start with the original invoice/account number entered by user
+        var baseNumber = gr.getValue('original_invoice_number') || '';
 
-    var constructedNumber = baseNumber;
-
-    // Step 1: Add _MMYY suffix if toggle is set to account_number
-    if (gr.getValue('invoice_account_toggle') == 'account_number' && gr.getValue('invoice_credit_variable') != 'credit') {
-        var mmyy = this._getMMYYFromDate(gr.getValue('invoice_pdf_date'));
-        if (mmyy) {
-            constructedNumber += '_' + mmyy;
+        if (!baseNumber) {
+            gs.warn('VendorProgramPortalUtils: original_invoice_number is empty for record ' + gr.getUniqueValue());
+            return '';
         }
-    }
 
-    // Step 2: Add partial payment suffix if applicable
-    // Only for invoices (not credits) with partial pay indicator
-    if (gr.getValue('partial_pay_indicator') == 'Yes' && 
-        gr.getValue('invoice_credit_variable') == 'invoice') {
-        
-        var partialType = gr.getValue('partialpay_type');
-        
-        if (partialType == 'additional_payment') {
-            constructedNumber += '_BAL';
-        } else if (partialType == 'final_payment') {
-            constructedNumber += '_FINAL';
+        var constructedNumber = baseNumber;
+
+        // Step 1: Add _MMYY suffix if toggle is set to account_number
+        if (gr.getValue('invoice_account_toggle') == 'account_number' && gr.getValue('invoice_credit_variable') != 'credit') {
+            var mmyy = this._getMMYYFromDate(gr.getValue('invoice_pdf_date'));
+            if (mmyy) {
+                constructedNumber += '_' + mmyy;
+            }
         }
-        // initial_payment leaves it as is (no suffix)
-    }
 
-    // Step 3: Ensure uniqueness by checking for duplicates and appending letters
-    var uniqueNumber = this.getUniqueInvoiceNumber(constructedNumber, gr.getUniqueValue());
+        // Step 2: Add partial payment suffix if applicable
+        // Only for invoices (not credits) with partial pay indicator
+        if (gr.getValue('partial_pay_indicator') == 'Yes' &&
+            gr.getValue('invoice_credit_variable') == 'invoice') {
 
-    return uniqueNumber;
-},
+            var partialType = gr.getValue('partialpay_type');
+
+            if (partialType == 'additional_payment') {
+                constructedNumber += '_BAL';
+            } else if (partialType == 'final_payment') {
+                constructedNumber += '_FINAL';
+            }
+            // initial_payment leaves it as is (no suffix)
+        }
+
+        // Step 3: Ensure uniqueness by checking for duplicates and appending letters
+        var uniqueNumber = this.getUniqueInvoiceNumber(constructedNumber, gr.getUniqueValue());
+
+        return uniqueNumber;
+    },
 
     /**
      * Ensures the invoice number is unique by appending letters (A, B, C...) if needed
@@ -77,14 +77,14 @@ constructInvoiceNumber: function(gr) {
      * @returns {String} A unique invoice number
      */
     getUniqueInvoiceNumber: function(proposedNumber, currentSysId) {
-        var baseNumber = proposedNumber;  // This is the fully constructed number (123_BAL, 123_0125, etc.)
-        var duplicateSuffix = '';          // We append A, B, C here for duplicates
-        
+        var baseNumber = proposedNumber; // This is the fully constructed number (123_BAL, 123_0125, etc.)
+        var duplicateSuffix = ''; // We append A, B, C here for duplicates
+
         // Keep checking and appending letters until we find a unique number
         while (this._isDuplicateInvoiceNumber(baseNumber + duplicateSuffix, currentSysId)) {
             duplicateSuffix = this._getNextDuplicateSuffix(duplicateSuffix);
         }
-        
+
         return baseNumber + duplicateSuffix;
     },
 
@@ -98,19 +98,19 @@ constructInvoiceNumber: function(gr) {
         if (!currentSuffix || currentSuffix.length === 0) {
             return 'A';
         }
-        
+
         var lastChar = currentSuffix.slice(-1);
-        
+
         // If last character is A-Y, increment it
         if (lastChar >= 'A' && lastChar < 'Z') {
             var nextChar = String.fromCharCode(lastChar.charCodeAt(0) + 1);
             return currentSuffix.slice(0, -1) + nextChar;
-        } 
+        }
         // If last character is Z, append another A (Z -> ZA -> ZB... or A -> AA)
         else if (lastChar == 'Z') {
             return currentSuffix + 'A';
         }
-        
+
         // Fallback - should never reach here
         return currentSuffix + 'A';
     },
@@ -124,12 +124,12 @@ constructInvoiceNumber: function(gr) {
     _isDuplicateInvoiceNumber: function(invoiceNumber, currentSysId) {
         var gr = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
         gr.addQuery('invoice_number', invoiceNumber);
-        
+
         // Exclude the current record from duplicate check
         if (currentSysId) {
             gr.addQuery('sys_id', '!=', currentSysId);
         }
-        
+
         // Exclude rejected records from duplicate check
         gr.addQuery('approval', '!=', 'rejected');
         gr.query();
