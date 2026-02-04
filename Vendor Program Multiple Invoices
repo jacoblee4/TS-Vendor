@@ -684,7 +684,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         }
     }
 
-    function validateGroup(group) {
+   function validateGroup(group) {
     if (group.has_credit) {
         var invoiceAmt = parseFloat(group.invoice_amount.replace(/[,$]/g, '')) || 0;
         var creditAmt = parseFloat(group.credit_amount.replace(/[,$]/g, '')) || 0;
@@ -693,8 +693,8 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         var total = invoiceAmt + creditAmt;
         group.currentTotal = '$' + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
         
-        // Credit is negative, check if absolute value exceeds invoice
-        if (Math.abs(creditAmt) > invoiceAmt) {
+        // Credit is negative, check if total is <= 0 (invalid)
+        if (total <= 0) {
             group.show_group_error = true;
         } else {
             group.show_group_error = false;
