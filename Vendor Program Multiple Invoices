@@ -17,7 +17,7 @@
               title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
         <label>Invoice Date</label>
         <div class="info-text">Enter the Invoice Date located on the PDF</div>
-        <input type="date" class="form-control" ng-model="group.invoice_pdf_date" ng-change="updateMandatory()"/>
+        <input type="date" class="form-control" ng-model="group.invoice_pdf_date"/>
         
         <div style="margin-top:7px;">
           <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': group.invoice_number != ''}"
@@ -67,7 +67,7 @@
                 title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
           <label>Invoice Date</label>
           <div class="info-text">Enter the Invoice Date located on the PDF</div>
-          <input type="date" class="form-control" ng-model="group.credit_pdf_date" ng-change="updateMandatory()"/>
+          <input type="date" class="form-control" ng-model="group.credit_pdf_date"/>
           
           <div style="margin-top:7px;">
             <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': group.credit_number != ''}"
@@ -316,6 +316,8 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     var c = this;
     var g_form = $scope.page.g_form;
 
+    console.log('[WIDGET] Controller initialized');
+
     // Helper functions for mandatory field validation
     function isDateFilled(dateValue) {
         if (!dateValue) return false;
@@ -343,14 +345,19 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
     // Lightweight function - only updates mandatory status
     $scope.updateMandatory = function() {
-        refreshMandatoryFilled();
+        console.log('[WIDGET] updateMandatory called');
+        var start = performance.now();
         
-        // Also validate groups when amounts change
+        refreshMandatoryFilled();
         validateAllGroups();
+        
+        var end = performance.now();
+        console.log('[WIDGET] updateMandatory took ' + (end - start).toFixed(2) + 'ms');
     };
 
     // Add new invoice group
     $scope.addInvoiceGroup = function() {
+        console.log('[WIDGET] addInvoiceGroup called');
         var group = {
             id: uuidv4(),
             invoice_pdf_date: '',
@@ -373,11 +380,15 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             show_group_error: false
         };
         c.data.invoiceGroups.push(group);
+        console.log('[WIDGET] Total invoice groups: ' + c.data.invoiceGroups.length);
         refreshMandatoryFilled();
     };
 
     // Delete invoice group
     $scope.deleteInvoiceGroup = function(index, group) {
+        console.log('[WIDGET] deleteInvoiceGroup called for index: ' + index);
+        var start = performance.now();
+        
         // Delete invoice attachments
         c.server.get({
             action: 'delete_attachments',
@@ -394,10 +405,14 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         
         c.data.invoiceGroups.splice(index, 1);
         refreshMandatoryFilled();
+        
+        var end = performance.now();
+        console.log('[WIDGET] deleteInvoiceGroup took ' + (end - start).toFixed(2) + 'ms');
     };
 
     // Add credit to specific group
     $scope.addCreditToGroup = function(group) {
+        console.log('[WIDGET] addCreditToGroup called');
         group.has_credit = true;
         group.credit_attachment_id = uuidv4();
         group.credit_pdf_date = '';
@@ -409,6 +424,9 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
     // Remove credit from specific group
     $scope.removeCreditFromGroup = function(group) {
+        console.log('[WIDGET] removeCreditFromGroup called');
+        var start = performance.now();
+        
         // Delete credit attachments
         if (group.credit_attachment_id) {
             c.server.get({
@@ -426,6 +444,9 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         group.show_credit_error = false;
         group.show_group_error = false;
         refreshMandatoryFilled();
+        
+        var end = performance.now();
+        console.log('[WIDGET] removeCreditFromGroup took ' + (end - start).toFixed(2) + 'ms');
     };
 
     function setupAttachmentHandler() {
@@ -443,6 +464,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         return g_form.getValue('partial_pay_indicator');
     }, function(newValue, oldValue) {
         if (newValue === 'Yes') {
+            console.log('[WIDGET] partial_pay_indicator changed to Yes');
             $scope.hideAddInvoiceButton = true;
             
             if (c.data.invoiceGroups.length > 1) {
@@ -475,7 +497,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         return g_form.getValue('invoice_account_toggle');
     }, function(newValue, oldValue) {
         if (newValue !== oldValue && oldValue !== undefined) {
-            // Only refresh variables when toggle changes
+            console.log('[WIDGET] invoice_account_toggle changed');
             $scope.refreshVariables();
         }
     });
@@ -570,6 +592,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     }
 
     function refreshMandatoryFilled() {
+        var start = performance.now();
         var allGroupsValid = true;
 
         for (var i = 0; i < c.data.invoiceGroups.length; i++) {
@@ -599,10 +622,16 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         }
 
         g_form.setValue('mandatory_filled', allGroupsValid);
+        
+        var end = performance.now();
+        console.log('[WIDGET] refreshMandatoryFilled took ' + (end - start).toFixed(2) + 'ms');
     }
 
     // HEAVY FUNCTION - Only call once before submit
     $scope.refreshVariables = function() {
+        console.log('[WIDGET] refreshVariables called - COMPILING ALL DATA');
+        var start = performance.now();
+        
         var invoice_numbers = '';
         var invoice_amounts = '';
         var invoice_attachment_ids = '';
@@ -674,6 +703,14 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         credit_attachment_ids = credit_attachment_ids.slice(0, -1);
         credit_pdf_dates = credit_pdf_dates.slice(0, -1);
 
+        console.log('[WIDGET] Compiled data:');
+        console.log('  - invoice_numbers: ' + invoice_numbers);
+        console.log('  - invoice_amounts: ' + invoice_amounts);
+        console.log('  - invoice_pdf_dates: ' + invoice_pdf_dates);
+        console.log('  - has_credit_flags: ' + has_credit_flags);
+        console.log('  - credit_numbers: ' + credit_numbers);
+        console.log('  - credit_amounts: ' + credit_amounts);
+
         // Set all hidden fields
         g_form.setValue('invoice_numbers', invoice_numbers);
         g_form.setValue('invoice_amounts', invoice_amounts);
@@ -688,6 +725,9 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
         validateAllGroups();
         refreshMandatoryFilled();
+        
+        var end = performance.now();
+        console.log('[WIDGET] refreshVariables took ' + (end - start).toFixed(2) + 'ms');
     };
 
     function validateAllGroups() {
@@ -750,7 +790,10 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     
     // Expose refreshVariables globally so Record Producer can call it
     window.compileInvoiceData = function() {
+        console.log('[WINDOW] compileInvoiceData called from Record Producer');
         $scope.refreshVariables();
         $scope.$apply();
     };
+    
+    console.log('[WIDGET] Controller setup complete');
 };
