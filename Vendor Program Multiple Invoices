@@ -266,6 +266,7 @@
         gr_delete_multiple.deleteMultiple();
     }
 
+    // Initialize first invoice row
     var invoice_row = {
         id: uuidv4(),
         invoice_pdf_date: '',
@@ -276,8 +277,22 @@
         show_invoice_error: false
     };
 
+    // Initialize matching credit placeholder (has_credit: false)
+    var credit_placeholder = {
+        id: uuidv4(),
+        has_credit: false,
+        invoice_pdf_date: '',
+        invoice_number: '',
+        invoice_amount: '-',
+        attachmentCount: 0,
+        invoice_error: 'Invalid currency format or must be negative.',
+        show_invoice_error: false,
+        show_group_error: false,
+        currentTotal: ''
+    };
+
     data.invoice_rows = [invoice_row];
-    data.credit_rows = [];
+    data.credit_rows = [credit_placeholder];  // <-- FIX: Start with 1 placeholder
 
     function getIcon(content_type) {
         return FILE_ICON_MAP[content_type] || "fa-file-o";
