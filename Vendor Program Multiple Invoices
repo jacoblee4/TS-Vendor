@@ -309,7 +309,7 @@
 
 // Client Script
 
-api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
+api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $timeout) {
     var c = this;
     var g_form = $scope.page.g_form;
 
@@ -589,79 +589,80 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         g_form.setValue('mandatory_filled', allGroupsValid);
     }
 
-    $scope.refreshVariables = function() {
-        var invoice_numbers = '';
-        var invoice_amounts = '';
-        var invoice_attachment_ids = '';
-        var invoice_pdf_dates = '';
-        
-        var has_credit_flags = '';
-        var credit_numbers = '';
-        var credit_amounts = '';
-        var credit_attachment_ids = '';
-        var credit_pdf_dates = '';
+   $scope.refreshVariables = function() {
+    var invoice_numbers = '';
+    var invoice_amounts = '';
+    var invoice_attachment_ids = '';
+    var invoice_pdf_dates = '';
+    
+    var has_credit_flags = '';
+    var credit_numbers = '';
+    var credit_amounts = '';
+    var credit_attachment_ids = '';
+    var credit_pdf_dates = '';
 
-        // Process each invoice group
-        for (var i = 0; i < c.data.invoiceGroups.length; i++) {
-            var group = c.data.invoiceGroups[i];
-            
-            // Convert Date object to YYYY-MM-DD string for invoice
-            var invDateString = '';
-            if (group.invoice_pdf_date) {
-                if (group.invoice_pdf_date instanceof Date) {
-                    var d = group.invoice_pdf_date;
+    // Process each invoice group
+    for (var i = 0; i < c.data.invoiceGroups.length; i++) {
+        var group = c.data.invoiceGroups[i];
+        
+        // Convert Date object to YYYY-MM-DD string for invoice
+        var invDateString = '';
+        if (group.invoice_pdf_date) {
+            if (group.invoice_pdf_date instanceof Date) {
+                var d = group.invoice_pdf_date;
+                var month = String(d.getMonth() + 1).padStart(2, '0');
+                var day = String(d.getDate()).padStart(2, '0');
+                var year = d.getFullYear();
+                invDateString = year + '-' + month + '-' + day;
+            } else {
+                invDateString = group.invoice_pdf_date;
+            }
+        }
+        
+        // Add invoice data
+        invoice_numbers += group.invoice_number + ',';
+        invoice_amounts += group.invoice_amount + ',';
+        invoice_attachment_ids += group.invoice_attachment_id + ',';
+        invoice_pdf_dates += invDateString + ',';
+        
+        // Add credit flag and data
+        has_credit_flags += group.has_credit + ',';
+        
+        if (group.has_credit) {
+            // Convert Date object to YYYY-MM-DD string for credit
+            var credDateString = '';
+            if (group.credit_pdf_date) {
+                if (group.credit_pdf_date instanceof Date) {
+                    var d = group.credit_pdf_date;
                     var month = String(d.getMonth() + 1).padStart(2, '0');
                     var day = String(d.getDate()).padStart(2, '0');
                     var year = d.getFullYear();
-                    invDateString = year + '-' + month + '-' + day;
+                    credDateString = year + '-' + month + '-' + day;
                 } else {
-                    invDateString = group.invoice_pdf_date;
+                    credDateString = group.credit_pdf_date;
                 }
             }
             
-            // Add invoice data
-            invoice_numbers += group.invoice_number + ',';
-            invoice_amounts += group.invoice_amount + ',';
-            invoice_attachment_ids += group.invoice_attachment_id + ',';
-            invoice_pdf_dates += invDateString + ',';
-            
-            // Add credit flag and data
-            has_credit_flags += group.has_credit + ',';
-            
-            if (group.has_credit) {
-                // Convert Date object to YYYY-MM-DD string for credit
-                var credDateString = '';
-                if (group.credit_pdf_date) {
-                    if (group.credit_pdf_date instanceof Date) {
-                        var d = group.credit_pdf_date;
-                        var month = String(d.getMonth() + 1).padStart(2, '0');
-                        var day = String(d.getDate()).padStart(2, '0');
-                        var year = d.getFullYear();
-                        credDateString = year + '-' + month + '-' + day;
-                    } else {
-                        credDateString = group.credit_pdf_date;
-                    }
-                }
-                
-                credit_numbers += group.credit_number + ',';
-                credit_amounts += group.credit_amount + ',';
-                credit_attachment_ids += group.credit_attachment_id + ',';
-                credit_pdf_dates += credDateString + ',';
-            }
+            credit_numbers += group.credit_number + ',';
+            credit_amounts += group.credit_amount + ',';
+            credit_attachment_ids += group.credit_attachment_id + ',';
+            credit_pdf_dates += credDateString + ',';
         }
+    }
 
-        // Remove trailing commas
-        invoice_numbers = invoice_numbers.slice(0, -1);
-        invoice_amounts = invoice_amounts.slice(0, -1);
-        invoice_attachment_ids = invoice_attachment_ids.slice(0, -1);
-        invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
-        has_credit_flags = has_credit_flags.slice(0, -1);
-        credit_numbers = credit_numbers.slice(0, -1);
-        credit_amounts = credit_amounts.slice(0, -1);
-        credit_attachment_ids = credit_attachment_ids.slice(0, -1);
-        credit_pdf_dates = credit_pdf_dates.slice(0, -1);
+    // Remove trailing commas
+    invoice_numbers = invoice_numbers.slice(0, -1);
+    invoice_amounts = invoice_amounts.slice(0, -1);
+    invoice_attachment_ids = invoice_attachment_ids.slice(0, -1);
+    invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
+    has_credit_flags = has_credit_flags.slice(0, -1);
+    credit_numbers = credit_numbers.slice(0, -1);
+    credit_amounts = credit_amounts.slice(0, -1);
+    credit_attachment_ids = credit_attachment_ids.slice(0, -1);
+    credit_pdf_dates = credit_pdf_dates.slice(0, -1);
 
-        // Set all hidden fields
+    // WRAP ALL g_form.setValue CALLS IN $timeout TO PREVENT UI BLOCKING
+    $timeout(function() {
         g_form.setValue('invoice_numbers', invoice_numbers);
         g_form.setValue('invoice_amounts', invoice_amounts);
         g_form.setValue('attachment_ids', invoice_attachment_ids);
@@ -672,10 +673,11 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         g_form.setValue('credit_amounts', credit_amounts);
         g_form.setValue('credit_attachment_ids', credit_attachment_ids);
         g_form.setValue('credit_pdf_dates', credit_pdf_dates);
-
+        
         validateAllGroups();
         refreshMandatoryFilled();
-    };
+    }, 0);
+};
 
     function validateAllGroups() {
         for (var i = 0; i < c.data.invoiceGroups.length; i++) {
