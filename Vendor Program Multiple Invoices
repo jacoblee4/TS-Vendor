@@ -333,15 +333,15 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $time
         return cleanAmount.length > 0;
     }
 
-	g_form.onSubmit(function() {
-    $scope.refreshVariables();
-    return true; // Allow submission to proceed
-});
-
     $scope.isDateFilled = isDateFilled;
     $scope.isAmountFilled = isAmountFilled;
 
     $scope.hideAddInvoiceButton = false;
+
+	g_form.onSubmit(function() {
+    $scope.refreshVariables();
+    return true; // Allow submission to proceed
+});
 
     // Add new invoice group
     $scope.addInvoiceGroup = function() {
