@@ -4,71 +4,45 @@ remit.get(producer.remit_to_address);
 var supplier_name = remit.sys_id;
 var address_line_1 = remit.address_street_1;
 
-// Parse all arrays
 var invoice_numbers = producer.invoice_numbers.toString().split(',');
 var invoice_amounts = producer.invoice_amounts.toString().split(',');
-var invoice_attachment_ids = producer.attachment_ids.toString().split(',');
+var attachment_ids = producer.attachment_ids.toString().split(',');
 var invoice_pdf_dates = producer.invoice_pdf_dates.toString().split(',');
+var invoice_credit_variables = producer.invoice_credit_variables.toString().split(',');
+var invoice_lines = [];
 
-var has_credit_flags = producer.has_credit_flags.toString().split(',');
-var credit_numbers = producer.credit_numbers.toString().split(',');
-var credit_amounts = producer.credit_amounts.toString().split(',');
-var credit_attachment_ids = producer.credit_attachment_ids.toString().split(',');
-var credit_pdf_dates = producer.credit_pdf_dates.toString().split(',');
-
-var invoiceSysIds = [];
-var invoiceLines = [];
-var creditLines = [];
-
-// STEP 1: Create ALL invoices first
 for (var i = 0; i < invoice_numbers.length; i++) {
-    var invGR = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
-    invGR.initialize();
-    invGR.requested_by = producer.requested_by;
-    invGR.invoice_date = producer.invoice_date;
-    invGR.invoice_account_toggle = producer.invoice_account_toggle;
-    invGR.supplier_name = supplier_name;
-    invGR.remit_to_address = address_line_1;
-    invGR.invoice_pdf_date = invoice_pdf_dates[i];
-    invGR.original_invoice_number = invoice_numbers[i];
-    
-    // Set partial payment fields - Business Rule will construct invoice_number
-    if (producer.partial_pay_indicator == 'Yes') {
-        invGR.partialpay_type = producer.partialpay_type;
-        invGR.partial_pay_indicator = producer.partial_pay_indicator;
-    }
-    
-    invGR.invoice_total = invoice_amounts[i];
-    invGR.invoice_credit_variable = 'invoice';
-    
-    var invoiceSysId = invGR.insert();
-    invoiceSysIds.push(invoiceSysId);
-    invoiceLines.push(invoiceSysId);
-}
+    var gr = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
+    gr.initialize();
+    gr.requested_by = producer.requested_by;
+    gr.invoice_date = producer.invoice_date;
+    gr.invoice_account_toggle = producer.invoice_account_toggle;
+    gr.supplier_name = supplier_name;
+    gr.remit_to_address = address_line_1;
+    gr.invoice_pdf_date = invoice_pdf_dates[i];
 
-// STEP 2: Create credits with related_invoice linkage
-var credit_index = 0;
-for (var i = 0; i < has_credit_flags.length; i++) {
-    if (has_credit_flags[i] == 'true') {
-        var creditGR = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
-        creditGR.initialize();
-        creditGR.requested_by = producer.requested_by;
-        creditGR.invoice_date = producer.invoice_date;
-        creditGR.invoice_account_toggle = producer.invoice_account_toggle;
-        creditGR.supplier_name = supplier_name;
-        creditGR.remit_to_address = address_line_1;
-        creditGR.invoice_pdf_date = credit_pdf_dates[credit_index];
-        creditGR.original_invoice_number = credit_numbers[credit_index];
-        creditGR.credit_memo = credit_amounts[credit_index];
-        creditGR.invoice_credit_variable = 'credit';
-        
-        // LINK CREDIT TO INVOICE
-        creditGR.related_invoice = invoiceSysIds[i];
-        
-        var creditSysId = creditGR.insert();
-        creditLines.push(creditSysId);
-        credit_index++;
+    // Store the original number entered by user
+    gr.original_invoice_number = invoice_numbers[i];
+    
+    // Set partial payment fields - Business Rule will use these to construct invoice_number
+    if (producer.partial_pay_indicator == 'Yes' && invoice_credit_variables[i] == 'invoice') {
+        gr.partialpay_type = producer.partialpay_type;
+        gr.partial_pay_indicator = producer.partial_pay_indicator;
     }
+
+    // Populate invoice_total or credit_memo based on type
+    if (invoice_credit_variables[i] == 'invoice') {
+        gr.invoice_total = invoice_amounts[i];
+    } else if (invoice_credit_variables[i] == 'credit') {
+        gr.credit_memo = invoice_amounts[i];
+    }
+
+    gr.invoice_credit_variable = invoice_credit_variables[i];
+
+    // Insert - Business Rule will automatically set invoice_number
+    var invoice_id = gr.insert();
+
+    invoice_lines.push(invoice_id);
 }
 
 linkAttachments();
@@ -77,30 +51,15 @@ current.setAbortAction(true);
 producer.portal_redirect = "?id=vendorprogram_home";
 
 function linkAttachments() {
-    // Link invoice attachments
-    for (var i = 0; i < invoice_attachment_ids.length; i++) {
-        if (invoice_attachment_ids[i] != 'copied') {
+    for (var i = 0; i < invoice_lines.length; i++) {
+        if (attachment_ids[i] != 'copied') {
             var gr = new GlideRecord('sys_attachment');
-            gr.addQuery('table_sys_id', invoice_attachment_ids[i]);
+            gr.addQuery('table_sys_id', attachment_ids[i]);
             gr.query();
 
             while (gr.next()) {
-                gr.table_sys_id = invoiceLines[i];
+                gr.table_sys_id = invoice_lines[i];
                 gr.update();
-            }
-        }
-    }
-    
-    // Link credit attachments
-    for (var j = 0; j < credit_attachment_ids.length; j++) {
-        if (credit_attachment_ids[j] && credit_attachment_ids[j] != 'copied' && credit_attachment_ids[j] != '') {
-            var gr_credit = new GlideRecord('sys_attachment');
-            gr_credit.addQuery('table_sys_id', credit_attachment_ids[j]);
-            gr_credit.query();
-
-            while (gr_credit.next()) {
-                gr_credit.table_sys_id = creditLines[j];
-                gr_credit.update();
             }
         }
     }
