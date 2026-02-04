@@ -725,4 +725,9 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             
             if (type === 'invoice' && group.id == id) {
                 group.show_invoice_error = showError;
-            } else if (type === 'credit' && group.id ==
+            } else if (type === 'credit' && group.id == id) {
+                group.show_credit_error = showError;
+            }
+        }
+    }
+};
