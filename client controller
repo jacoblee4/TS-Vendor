@@ -1,0 +1,485 @@
+api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
+    var c = this;
+    var g_form = $scope.page.g_form;
+
+    console.log('[WIDGET] Controller initialized');
+
+    // Helper functions for mandatory field validation
+    function isDateFilled(dateValue) {
+        if (!dateValue) return false;
+        if (dateValue === '') return false;
+        if (dateValue instanceof Date) {
+            return !isNaN(dateValue.getTime());
+        }
+        if (typeof dateValue === 'string') {
+            return dateValue.length > 0 && dateValue !== 'mm/dd/yyyy';
+        }
+        return false;
+    }
+
+    function isAmountFilled(amount, type) {
+        if (!amount || amount === '') return false;
+        if (type === 'credit' && amount === '-') return false;
+        var cleanAmount = amount.replace(/[,$-]/g, '');
+        return cleanAmount.length > 0;
+    }
+
+    $scope.isDateFilled = isDateFilled;
+    $scope.isAmountFilled = isAmountFilled;
+
+    $scope.hideAddInvoiceButton = false;
+
+    // Lightweight function - only updates mandatory status
+    $scope.updateMandatory = function() {
+        console.log('[WIDGET] updateMandatory called');
+        var start = performance.now();
+        
+        refreshMandatoryFilled();
+        validateAllGroups();
+        
+        var end = performance.now();
+        console.log('[WIDGET] updateMandatory took ' + (end - start).toFixed(2) + 'ms');
+    };
+
+    // Add new invoice group
+    $scope.addInvoiceGroup = function() {
+        console.log('[WIDGET] addInvoiceGroup called');
+        var group = {
+            id: uuidv4(),
+            invoice_pdf_date: '',
+            invoice_number: '',
+            invoice_amount: '',
+            invoice_attachment_id: uuidv4(),
+            invoice_attachmentCount: 0,
+            invoice_error: 'Invalid currency format or must be positive.',
+            show_invoice_error: false,
+            
+            has_credit: false,
+            credit_pdf_date: '',
+            credit_number: '',
+            credit_amount: '-',
+            credit_attachment_id: '',
+            credit_attachmentCount: 0,
+            credit_error: 'Invalid currency format or must be negative.',
+            show_credit_error: false,
+            
+            show_group_error: false
+        };
+        c.data.invoiceGroups.push(group);
+        console.log('[WIDGET] Total invoice groups: ' + c.data.invoiceGroups.length);
+        refreshMandatoryFilled();
+    };
+
+    // Delete invoice group
+    $scope.deleteInvoiceGroup = function(index, group) {
+        console.log('[WIDGET] deleteInvoiceGroup called for index: ' + index);
+        var start = performance.now();
+        
+        // Delete invoice attachments
+        c.server.get({
+            action: 'delete_attachments',
+            attachment_id: group.invoice_attachment_id
+        });
+        
+        // Delete credit attachments if credit exists
+        if (group.has_credit && group.credit_attachment_id) {
+            c.server.get({
+                action: 'delete_attachments',
+                attachment_id: group.credit_attachment_id
+            });
+        }
+        
+        c.data.invoiceGroups.splice(index, 1);
+        refreshMandatoryFilled();
+        
+        var end = performance.now();
+        console.log('[WIDGET] deleteInvoiceGroup took ' + (end - start).toFixed(2) + 'ms');
+    };
+
+    // Add credit to specific group
+    $scope.addCreditToGroup = function(group) {
+        console.log('[WIDGET] addCreditToGroup called');
+        group.has_credit = true;
+        group.credit_attachment_id = uuidv4();
+        group.credit_pdf_date = '';
+        group.credit_number = '';
+        group.credit_amount = '-';
+        group.credit_attachmentCount = 0;
+        refreshMandatoryFilled();
+    };
+
+    // Remove credit from specific group
+    $scope.removeCreditFromGroup = function(group) {
+        console.log('[WIDGET] removeCreditFromGroup called');
+        var start = performance.now();
+        
+        // Delete credit attachments
+        if (group.credit_attachment_id) {
+            c.server.get({
+                action: 'delete_attachments',
+                attachment_id: group.credit_attachment_id
+            });
+        }
+        
+        group.has_credit = false;
+        group.credit_pdf_date = '';
+        group.credit_number = '';
+        group.credit_amount = '-';
+        group.credit_attachment_id = '';
+        group.credit_attachmentCount = 0;
+        group.show_credit_error = false;
+        group.show_group_error = false;
+        refreshMandatoryFilled();
+        
+        var end = performance.now();
+        console.log('[WIDGET] removeCreditFromGroup took ' + (end - start).toFixed(2) + 'ms');
+    };
+
+    function setupAttachmentHandler() {
+        $scope.attachmentHandler = new nowAttachmentHandler(appendDone, appendError);
+        $scope.$on('dialog.upload_too_large.show', function(e) {
+            $log.error($scope.data.largeAttachmentMsg);
+            spUtil.addErrorMessage($scope.data.largeAttachmentMsg);
+        });
+    }
+
+    setupAttachmentHandler();
+
+    // Watch for partial_pay_indicator changes
+    $scope.$watch(function() {
+        return g_form.getValue('partial_pay_indicator');
+    }, function(newValue, oldValue) {
+        if (newValue === 'Yes') {
+            console.log('[WIDGET] partial_pay_indicator changed to Yes');
+            $scope.hideAddInvoiceButton = true;
+            
+            if (c.data.invoiceGroups.length > 1) {
+                for (var i = c.data.invoiceGroups.length - 1; i > 0; i--) {
+                    var group = c.data.invoiceGroups[i];
+                    
+                    c.server.get({
+                        action: 'delete_attachments',
+                        attachment_id: group.invoice_attachment_id
+                    });
+                    
+                    if (group.has_credit && group.credit_attachment_id) {
+                        c.server.get({
+                            action: 'delete_attachments',
+                            attachment_id: group.credit_attachment_id
+                        });
+                    }
+                    
+                    c.data.invoiceGroups.splice(i, 1);
+                }
+                
+                refreshMandatoryFilled();
+            }
+        } else {
+            $scope.hideAddInvoiceButton = false;
+        }
+    });
+
+    $scope.$watch(function() {
+        return g_form.getValue('invoice_account_toggle');
+    }, function(newValue, oldValue) {
+        if (newValue !== oldValue && oldValue !== undefined) {
+            console.log('[WIDGET] invoice_account_toggle changed');
+            $scope.refreshVariables();
+        }
+    });
+
+    function appendDone() {
+        _updateAttachmentCounter(c.data.current_attachment_id, 'increment');
+        $scope.fetchAttachments(c.data.current_attachment_id);
+    }
+
+    function appendError(error) {
+        gs.error(error.msg + error.fileName);
+    }
+
+    $scope.setCurrentID = function(attachment_id, $event) {
+        c.data.current_attachment_id = attachment_id;
+        $scope.fetchAttachments(attachment_id);
+        openModal('add-invoice-attachment', '');
+    };
+
+    $scope.fetchAttachments = function(attachment_id) {
+        c.server.get({
+            viewattachment: attachment_id
+        }).then(function(response) {
+            c.data.attachments = response.data.attachments;
+            c.data.current_attachment_id = attachment_id;
+        });
+    };
+
+    $scope.prepareAttachment = function($event) {
+        var sizeLimit = 1024 * 1024 * 24;
+        var current_attachment_id = c.data.current_attachment_id.toString();
+        $scope.attachmentHandler.setParams('x_banun_submit_a_0_new_invoice_submission', current_attachment_id, sizeLimit);
+        $scope.attachmentHandler.openSelector($event);
+    };
+
+    $scope.deleteAttachment = function(attachment_id) {
+        c.server.get({
+            deleteattachment: attachment_id
+        }).then(function(response) {
+            _updateAttachmentCounter(c.data.current_attachment_id, 'decrement');
+            $scope.fetchAttachments(c.data.current_attachment_id);
+        });
+    };
+
+    function _updateAttachmentCounter(attachment_id, action) {
+        for (var i = 0; i < c.data.invoiceGroups.length; i++) {
+            var group = c.data.invoiceGroups[i];
+            
+            if (group.invoice_attachment_id == attachment_id) {
+                if (action == "increment") {
+                    group.invoice_attachmentCount++;
+                } else if (action == "decrement") {
+                    group.invoice_attachmentCount--;
+                }
+            }
+            
+            if (group.has_credit && group.credit_attachment_id == attachment_id) {
+                if (action == "increment") {
+                    group.credit_attachmentCount++;
+                } else if (action == "decrement") {
+                    group.credit_attachmentCount--;
+                }
+            }
+        }
+        refreshMandatoryFilled();
+    }
+
+    function openModal(template, size, callback) {
+        callback = callback || false;
+        c.modalInstance = $uibModal.open({
+            templateUrl: template,
+            scope: $scope,
+            size: size
+        });
+        if (callback) {
+            c.closedModal = c.modalInstance.closed.then(function() {
+                callback();
+            });
+        }
+    }
+
+    $scope.closeModal = function() {
+        c.modalInstance.close();
+    };
+
+    function uuidv4() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0,
+                v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    function refreshMandatoryFilled() {
+        var start = performance.now();
+        var allGroupsValid = true;
+
+        for (var i = 0; i < c.data.invoiceGroups.length; i++) {
+            var group = c.data.invoiceGroups[i];
+            
+            // Check invoice fields
+            var invoiceFilled = isDateFilled(group.invoice_pdf_date) && 
+                                group.invoice_number != '' && 
+                                isAmountFilled(group.invoice_amount, 'invoice') && 
+                                group.invoice_attachmentCount > 0;
+            
+            // Check credit fields if credit exists
+            var creditFilled = true;
+            if (group.has_credit) {
+                creditFilled = isDateFilled(group.credit_pdf_date) && 
+                               group.credit_number != '' && 
+                               isAmountFilled(group.credit_amount, 'credit') && 
+                               group.credit_attachmentCount > 0;
+            }
+            
+            // Validate this group
+            var groupValid = invoiceFilled && creditFilled && !group.show_group_error;
+            
+            if (!groupValid) {
+                allGroupsValid = false;
+            }
+        }
+
+        g_form.setValue('mandatory_filled', allGroupsValid);
+        
+        var end = performance.now();
+        console.log('[WIDGET] refreshMandatoryFilled took ' + (end - start).toFixed(2) + 'ms');
+    }
+
+    // HEAVY FUNCTION - Only call once before submit
+    $scope.refreshVariables = function() {
+        console.log('[WIDGET] refreshVariables called - COMPILING ALL DATA');
+        var start = performance.now();
+        
+        var invoice_numbers = '';
+        var invoice_amounts = '';
+        var invoice_attachment_ids = '';
+        var invoice_pdf_dates = '';
+        
+        var has_credit_flags = '';
+        var credit_numbers = '';
+        var credit_amounts = '';
+        var credit_attachment_ids = '';
+        var credit_pdf_dates = '';
+
+        // Process each invoice group
+        for (var i = 0; i < c.data.invoiceGroups.length; i++) {
+            var group = c.data.invoiceGroups[i];
+            
+            // Convert Date object to YYYY-MM-DD string for invoice
+            var invDateString = '';
+            if (group.invoice_pdf_date) {
+                if (group.invoice_pdf_date instanceof Date) {
+                    var d = group.invoice_pdf_date;
+                    var month = String(d.getMonth() + 1).padStart(2, '0');
+                    var day = String(d.getDate()).padStart(2, '0');
+                    var year = d.getFullYear();
+                    invDateString = year + '-' + month + '-' + day;
+                } else {
+                    invDateString = group.invoice_pdf_date;
+                }
+            }
+            
+            // Add invoice data
+            invoice_numbers += group.invoice_number + ',';
+            invoice_amounts += group.invoice_amount + ',';
+            invoice_attachment_ids += group.invoice_attachment_id + ',';
+            invoice_pdf_dates += invDateString + ',';
+            
+            // Add credit flag and data
+            has_credit_flags += group.has_credit + ',';
+            
+            if (group.has_credit) {
+                // Convert Date object to YYYY-MM-DD string for credit
+                var credDateString = '';
+                if (group.credit_pdf_date) {
+                    if (group.credit_pdf_date instanceof Date) {
+                        var d = group.credit_pdf_date;
+                        var month = String(d.getMonth() + 1).padStart(2, '0');
+                        var day = String(d.getDate()).padStart(2, '0');
+                        var year = d.getFullYear();
+                        credDateString = year + '-' + month + '-' + day;
+                    } else {
+                        credDateString = group.credit_pdf_date;
+                    }
+                }
+                
+                credit_numbers += group.credit_number + ',';
+                credit_amounts += group.credit_amount + ',';
+                credit_attachment_ids += group.credit_attachment_id + ',';
+                credit_pdf_dates += credDateString + ',';
+            }
+        }
+
+        // Remove trailing commas
+        invoice_numbers = invoice_numbers.slice(0, -1);
+        invoice_amounts = invoice_amounts.slice(0, -1);
+        invoice_attachment_ids = invoice_attachment_ids.slice(0, -1);
+        invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
+        has_credit_flags = has_credit_flags.slice(0, -1);
+        credit_numbers = credit_numbers.slice(0, -1);
+        credit_amounts = credit_amounts.slice(0, -1);
+        credit_attachment_ids = credit_attachment_ids.slice(0, -1);
+        credit_pdf_dates = credit_pdf_dates.slice(0, -1);
+
+        console.log('[WIDGET] Compiled data:');
+        console.log('  - invoice_numbers: ' + invoice_numbers);
+        console.log('  - invoice_amounts: ' + invoice_amounts);
+        console.log('  - invoice_pdf_dates: ' + invoice_pdf_dates);
+        console.log('  - has_credit_flags: ' + has_credit_flags);
+        console.log('  - credit_numbers: ' + credit_numbers);
+        console.log('  - credit_amounts: ' + credit_amounts);
+
+        // Set all hidden fields
+        g_form.setValue('invoice_numbers', invoice_numbers);
+        g_form.setValue('invoice_amounts', invoice_amounts);
+        g_form.setValue('attachment_ids', invoice_attachment_ids);
+        g_form.setValue('invoice_pdf_dates', invoice_pdf_dates);
+        
+        g_form.setValue('has_credit_flags', has_credit_flags);
+        g_form.setValue('credit_numbers', credit_numbers);
+        g_form.setValue('credit_amounts', credit_amounts);
+        g_form.setValue('credit_attachment_ids', credit_attachment_ids);
+        g_form.setValue('credit_pdf_dates', credit_pdf_dates);
+
+        validateAllGroups();
+        refreshMandatoryFilled();
+        
+        var end = performance.now();
+        console.log('[WIDGET] refreshVariables took ' + (end - start).toFixed(2) + 'ms');
+    };
+
+    function validateAllGroups() {
+        for (var i = 0; i < c.data.invoiceGroups.length; i++) {
+            validateGroup(c.data.invoiceGroups[i]);
+        }
+    }
+
+    function validateGroup(group) {
+        if (group.has_credit) {
+            var invoiceAmt = parseFloat(group.invoice_amount.replace(/[,$]/g, '')) || 0;
+            var creditAmt = parseFloat(group.credit_amount.replace(/[,$]/g, '')) || 0;
+            
+            // Calculate current total for this group
+            var total = invoiceAmt + creditAmt;
+            group.currentTotal = '$' + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            
+            // Credit is negative, check if total is <= 0 (invalid)
+            if (total <= 0) {
+                group.show_group_error = true;
+            } else {
+                group.show_group_error = false;
+            }
+        } else {
+            group.show_group_error = false;
+            group.currentTotal = '';
+        }
+    }
+
+    $scope.validateCurrency = function(value, type, id) {
+        var currencyRegex = /^-?(((\d{1,3},?)(\d{3},?)+|\d{1,3})|\d+)(\.\d{2})?$/;
+
+        if (!value || !currencyRegex.test(value)) {
+            setErrorForField(id, type, true);
+        } else {
+            var numValue = parseFloat(value.replace(/,/g, ''));
+            
+            if ((type === 'invoice' && numValue <= 0) || (type === 'credit' && numValue >= 0)) {
+                setErrorForField(id, type, true);
+            } else {
+                setErrorForField(id, type, false);
+            }
+        }
+        
+        validateAllGroups();
+        refreshMandatoryFilled();
+    };
+
+    function setErrorForField(id, type, showError) {
+        for (var i = 0; i < c.data.invoiceGroups.length; i++) {
+            var group = c.data.invoiceGroups[i];
+            
+            if (type === 'invoice' && group.id == id) {
+                group.show_invoice_error = showError;
+            } else if (type === 'credit' && group.id == id) {
+                group.show_credit_error = showError;
+            }
+        }
+    }
+    
+    // Expose refreshVariables globally so Record Producer can call it
+    window.compileInvoiceData = function() {
+        console.log('[WINDOW] compileInvoiceData called from Record Producer');
+        $scope.refreshVariables();
+        $scope.$apply();
+    };
+    
+    console.log('[WIDGET] Controller setup complete');
+};
