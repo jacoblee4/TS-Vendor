@@ -17,13 +17,13 @@
               title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
         <label>Invoice Date</label>
         <div class="info-text">Enter the Invoice Date located on the PDF</div>
-        <input type="date" class="form-control" ng-model="group.invoice_pdf_date" ng-blur="refreshVariables()"/>
+        <input type="date" class="form-control" ng-model="group.invoice_pdf_date" ng-change="updateMandatory()"/>
         
         <div style="margin-top:7px;">
           <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': group.invoice_number != ''}"
                 title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
           <label>Invoice/Account Number</label>
-          <input type="text" class="form-control" ng-model="group.invoice_number" ng-change="refreshVariables()"/>
+          <input type="text" class="form-control" ng-model="group.invoice_number" ng-change="updateMandatory()"/>
         </div>
         
         <div style="margin-top:7px;">
@@ -31,7 +31,7 @@
                 title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
           <label>Invoice/Account Amount</label>
           <input type="text" class="form-control" ng-model="group.invoice_amount" 
-                 ng-change="refreshVariables()" 
+                 ng-change="updateMandatory()" 
                  ng-blur="validateCurrency(group.invoice_amount, 'invoice', group.id)"/>
           <div class="error-message" ng-show="group.show_invoice_error">{{group.invoice_error}}</div>
         </div>
@@ -67,13 +67,13 @@
                 title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
           <label>Invoice Date</label>
           <div class="info-text">Enter the Invoice Date located on the PDF</div>
-          <input type="date" class="form-control" ng-model="group.credit_pdf_date" ng-blur="refreshVariables()"/>
+          <input type="date" class="form-control" ng-model="group.credit_pdf_date" ng-change="updateMandatory()"/>
           
           <div style="margin-top:7px;">
             <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': group.credit_number != ''}"
                   title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
             <label>Credit Memo Invoice/Account Number</label>
-            <input type="text" class="form-control" ng-model="group.credit_number" ng-change="refreshVariables()"/>
+            <input type="text" class="form-control" ng-model="group.credit_number" ng-change="updateMandatory()"/>
           </div>
           
           <div style="margin-top:7px;">
@@ -81,7 +81,7 @@
                   title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
             <label>Credit Memo Amount</label>
             <input type="text" class="form-control" ng-model="group.credit_amount" 
-                   ng-change="refreshVariables()" 
+                   ng-change="updateMandatory()" 
                    ng-blur="validateCurrency(group.credit_amount, 'credit', group.id)"/>
             <div class="error-message" ng-show="group.show_credit_error">{{group.credit_error}}</div>
           </div>
@@ -125,7 +125,6 @@
         ng-hide="hideAddInvoiceButton" style="margin-top: 20px;">
   <span class="glyphicon glyphicon-plus"></span> Add Another Invoice/Account
 </button>
-
 
 
 
@@ -313,7 +312,7 @@
 
 // Client Script
 
-api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $timeout) {
+api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     var c = this;
     var g_form = $scope.page.g_form;
 
@@ -341,6 +340,14 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $time
     $scope.isAmountFilled = isAmountFilled;
 
     $scope.hideAddInvoiceButton = false;
+
+    // Lightweight function - only updates mandatory status
+    $scope.updateMandatory = function() {
+        refreshMandatoryFilled();
+        
+        // Also validate groups when amounts change
+        validateAllGroups();
+    };
 
     // Add new invoice group
     $scope.addInvoiceGroup = function() {
@@ -386,7 +393,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $time
         }
         
         c.data.invoiceGroups.splice(index, 1);
-        $scope.refreshVariables();
+        refreshMandatoryFilled();
     };
 
     // Add credit to specific group
@@ -418,7 +425,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $time
         group.credit_attachmentCount = 0;
         group.show_credit_error = false;
         group.show_group_error = false;
-        $scope.refreshVariables();
+        refreshMandatoryFilled();
     };
 
     function setupAttachmentHandler() {
@@ -457,7 +464,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $time
                     c.data.invoiceGroups.splice(i, 1);
                 }
                 
-                $scope.refreshVariables();
+                refreshMandatoryFilled();
             }
         } else {
             $scope.hideAddInvoiceButton = false;
@@ -468,6 +475,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $time
         return g_form.getValue('invoice_account_toggle');
     }, function(newValue, oldValue) {
         if (newValue !== oldValue && oldValue !== undefined) {
+            // Only refresh variables when toggle changes
             $scope.refreshVariables();
         }
     });
@@ -593,80 +601,80 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $time
         g_form.setValue('mandatory_filled', allGroupsValid);
     }
 
-   $scope.refreshVariables = function() {
-    var invoice_numbers = '';
-    var invoice_amounts = '';
-    var invoice_attachment_ids = '';
-    var invoice_pdf_dates = '';
-    
-    var has_credit_flags = '';
-    var credit_numbers = '';
-    var credit_amounts = '';
-    var credit_attachment_ids = '';
-    var credit_pdf_dates = '';
+    // HEAVY FUNCTION - Only call once before submit
+    $scope.refreshVariables = function() {
+        var invoice_numbers = '';
+        var invoice_amounts = '';
+        var invoice_attachment_ids = '';
+        var invoice_pdf_dates = '';
+        
+        var has_credit_flags = '';
+        var credit_numbers = '';
+        var credit_amounts = '';
+        var credit_attachment_ids = '';
+        var credit_pdf_dates = '';
 
-    // Process each invoice group
-    for (var i = 0; i < c.data.invoiceGroups.length; i++) {
-        var group = c.data.invoiceGroups[i];
-        
-        // Convert Date object to YYYY-MM-DD string for invoice
-        var invDateString = '';
-        if (group.invoice_pdf_date) {
-            if (group.invoice_pdf_date instanceof Date) {
-                var d = group.invoice_pdf_date;
-                var month = String(d.getMonth() + 1).padStart(2, '0');
-                var day = String(d.getDate()).padStart(2, '0');
-                var year = d.getFullYear();
-                invDateString = year + '-' + month + '-' + day;
-            } else {
-                invDateString = group.invoice_pdf_date;
-            }
-        }
-        
-        // Add invoice data
-        invoice_numbers += group.invoice_number + ',';
-        invoice_amounts += group.invoice_amount + ',';
-        invoice_attachment_ids += group.invoice_attachment_id + ',';
-        invoice_pdf_dates += invDateString + ',';
-        
-        // Add credit flag and data
-        has_credit_flags += group.has_credit + ',';
-        
-        if (group.has_credit) {
-            // Convert Date object to YYYY-MM-DD string for credit
-            var credDateString = '';
-            if (group.credit_pdf_date) {
-                if (group.credit_pdf_date instanceof Date) {
-                    var d = group.credit_pdf_date;
+        // Process each invoice group
+        for (var i = 0; i < c.data.invoiceGroups.length; i++) {
+            var group = c.data.invoiceGroups[i];
+            
+            // Convert Date object to YYYY-MM-DD string for invoice
+            var invDateString = '';
+            if (group.invoice_pdf_date) {
+                if (group.invoice_pdf_date instanceof Date) {
+                    var d = group.invoice_pdf_date;
                     var month = String(d.getMonth() + 1).padStart(2, '0');
                     var day = String(d.getDate()).padStart(2, '0');
                     var year = d.getFullYear();
-                    credDateString = year + '-' + month + '-' + day;
+                    invDateString = year + '-' + month + '-' + day;
                 } else {
-                    credDateString = group.credit_pdf_date;
+                    invDateString = group.invoice_pdf_date;
                 }
             }
             
-            credit_numbers += group.credit_number + ',';
-            credit_amounts += group.credit_amount + ',';
-            credit_attachment_ids += group.credit_attachment_id + ',';
-            credit_pdf_dates += credDateString + ',';
+            // Add invoice data
+            invoice_numbers += group.invoice_number + ',';
+            invoice_amounts += group.invoice_amount + ',';
+            invoice_attachment_ids += group.invoice_attachment_id + ',';
+            invoice_pdf_dates += invDateString + ',';
+            
+            // Add credit flag and data
+            has_credit_flags += group.has_credit + ',';
+            
+            if (group.has_credit) {
+                // Convert Date object to YYYY-MM-DD string for credit
+                var credDateString = '';
+                if (group.credit_pdf_date) {
+                    if (group.credit_pdf_date instanceof Date) {
+                        var d = group.credit_pdf_date;
+                        var month = String(d.getMonth() + 1).padStart(2, '0');
+                        var day = String(d.getDate()).padStart(2, '0');
+                        var year = d.getFullYear();
+                        credDateString = year + '-' + month + '-' + day;
+                    } else {
+                        credDateString = group.credit_pdf_date;
+                    }
+                }
+                
+                credit_numbers += group.credit_number + ',';
+                credit_amounts += group.credit_amount + ',';
+                credit_attachment_ids += group.credit_attachment_id + ',';
+                credit_pdf_dates += credDateString + ',';
+            }
         }
-    }
 
-    // Remove trailing commas
-    invoice_numbers = invoice_numbers.slice(0, -1);
-    invoice_amounts = invoice_amounts.slice(0, -1);
-    invoice_attachment_ids = invoice_attachment_ids.slice(0, -1);
-    invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
-    has_credit_flags = has_credit_flags.slice(0, -1);
-    credit_numbers = credit_numbers.slice(0, -1);
-    credit_amounts = credit_amounts.slice(0, -1);
-    credit_attachment_ids = credit_attachment_ids.slice(0, -1);
-    credit_pdf_dates = credit_pdf_dates.slice(0, -1);
+        // Remove trailing commas
+        invoice_numbers = invoice_numbers.slice(0, -1);
+        invoice_amounts = invoice_amounts.slice(0, -1);
+        invoice_attachment_ids = invoice_attachment_ids.slice(0, -1);
+        invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
+        has_credit_flags = has_credit_flags.slice(0, -1);
+        credit_numbers = credit_numbers.slice(0, -1);
+        credit_amounts = credit_amounts.slice(0, -1);
+        credit_attachment_ids = credit_attachment_ids.slice(0, -1);
+        credit_pdf_dates = credit_pdf_dates.slice(0, -1);
 
-    // WRAP ALL g_form.setValue CALLS IN $timeout TO PREVENT UI BLOCKING
-    $timeout(function() {
+        // Set all hidden fields
         g_form.setValue('invoice_numbers', invoice_numbers);
         g_form.setValue('invoice_amounts', invoice_amounts);
         g_form.setValue('attachment_ids', invoice_attachment_ids);
@@ -677,11 +685,10 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $time
         g_form.setValue('credit_amounts', credit_amounts);
         g_form.setValue('credit_attachment_ids', credit_attachment_ids);
         g_form.setValue('credit_pdf_dates', credit_pdf_dates);
-        
+
         validateAllGroups();
         refreshMandatoryFilled();
-    }, 0);
-};
+    };
 
     function validateAllGroups() {
         for (var i = 0; i < c.data.invoiceGroups.length; i++) {
@@ -740,4 +747,10 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $time
             }
         }
     }
+    
+    // Expose refreshVariables globally so Record Producer can call it
+    window.compileInvoiceData = function() {
+        $scope.refreshVariables();
+        $scope.$apply();
+    };
 };
