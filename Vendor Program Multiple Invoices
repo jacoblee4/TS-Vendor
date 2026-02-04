@@ -17,7 +17,7 @@
               title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
         <label>Invoice Date</label>
         <div class="info-text">Enter the Invoice Date located on the PDF</div>
-        <input type="date" class="form-control" ng-model="group.invoice_pdf_date" ng-blur="refreshVariables()"/>
+        <input type="date" class="form-control" ng-model="group.invoice_pdf_date"/>
         
         <div style="margin-top:7px;">
           <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': group.invoice_number != ''}"
@@ -67,7 +67,7 @@
                 title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
           <label>Invoice Date</label>
           <div class="info-text">Enter the Invoice Date located on the PDF</div>
-          <input type="date" class="form-control" ng-model="group.credit_pdf_date" ng-blur="refreshVariables()"/>
+          <input type="date" class="form-control" ng-model="group.credit_pdf_date"/>
           
           <div style="margin-top:7px;">
             <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': group.credit_number != ''}"
@@ -332,6 +332,11 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $time
         var cleanAmount = amount.replace(/[,$-]/g, '');
         return cleanAmount.length > 0;
     }
+
+	g_form.onSubmit(function() {
+    $scope.refreshVariables();
+    return true; // Allow submission to proceed
+});
 
     $scope.isDateFilled = isDateFilled;
     $scope.isAmountFilled = isAmountFilled;
