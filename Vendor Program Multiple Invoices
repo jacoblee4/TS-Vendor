@@ -17,7 +17,7 @@
               title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
         <label>Invoice Date</label>
         <div class="info-text">Enter the Invoice Date located on the PDF</div>
-        <input type="date" class="form-control" ng-model="group.invoice_pdf_date"/>
+        <input type="date" class="form-control" ng-model="group.invoice_pdf_date" ng-blur="refreshVariables()"/>
         
         <div style="margin-top:7px;">
           <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': group.invoice_number != ''}"
@@ -67,7 +67,7 @@
                 title="Required" style="padding-right: 0.25em;" aria-label="Required"></span>
           <label>Invoice Date</label>
           <div class="info-text">Enter the Invoice Date located on the PDF</div>
-          <input type="date" class="form-control" ng-model="group.credit_pdf_date"/>
+          <input type="date" class="form-control" ng-model="group.credit_pdf_date" ng-blur="refreshVariables()"/>
           
           <div style="margin-top:7px;">
             <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': group.credit_number != ''}"
@@ -125,6 +125,10 @@
         ng-hide="hideAddInvoiceButton" style="margin-top: 20px;">
   <span class="glyphicon glyphicon-plus"></span> Add Another Invoice/Account
 </button>
+
+
+
+
 
 
 // CSS
@@ -337,11 +341,6 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil, $time
     $scope.isAmountFilled = isAmountFilled;
 
     $scope.hideAddInvoiceButton = false;
-
-	g_form.onSubmit(function() {
-    $scope.refreshVariables();
-    return true; // Allow submission to proceed
-});
 
     // Add new invoice group
     $scope.addInvoiceGroup = function() {
