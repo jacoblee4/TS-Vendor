@@ -418,9 +418,12 @@ $scope.$watch(function() {
     });
 
     function appendDone() {
-        _updateAttachmentCounter(c.data.current_row_id, 'increment');
-        $scope.fetchAttachments(c.data.current_row_id);
-    }
+    _updateAttachmentCounter(c.data.current_row_id, 'increment');
+    $scope.fetchAttachments(c.data.current_row_id);
+    
+    // Force Angular to update the view
+    $scope.$apply();
+}
 
     function appendError(error) {
         gs.error(error.msg + error.fileName);
@@ -458,19 +461,39 @@ $scope.$watch(function() {
     };
 
     function _updateAttachmentCounter(row_id, action) {
-        var allRows = c.data.invoice_rows.concat(c.data.credit_rows);
-        for (var i = 0; i < allRows.length; i++) {
-            if (allRows[i].id == row_id) {
+    var found = false;
+    
+    // Check invoice rows first
+    for (var i = 0; i < c.data.invoice_rows.length; i++) {
+        if (c.data.invoice_rows[i].id == row_id) {
+            if (action == "increment") {
+                c.data.invoice_rows[i].attachmentCount++;
+            }
+            if (action == "decrement") {
+                c.data.invoice_rows[i].attachmentCount--;
+            }
+            found = true;
+            break;
+        }
+    }
+    
+    // If not found, check credit rows
+    if (!found) {
+        for (var j = 0; j < c.data.credit_rows.length; j++) {
+            if (c.data.credit_rows[j].id == row_id) {
                 if (action == "increment") {
-                    allRows[i].attachmentCount++;
+                    c.data.credit_rows[j].attachmentCount++;
                 }
                 if (action == "decrement") {
-                    allRows[i].attachmentCount--;
+                    c.data.credit_rows[j].attachmentCount--;
                 }
+                break;
             }
         }
-        refreshMandatoryFilled();
     }
+    
+    refreshMandatoryFilled();
+}
 
     function openModal(template, size, callback) {
         callback = callback || false;
@@ -502,11 +525,13 @@ $scope.$watch(function() {
 var formSubmitAttempted = false;
 
 // NEW: Validate Related Invoice Numbers
+// NEW: Validate Related Invoice Numbers
 $scope.validateRelatedInvoice = function() {
     $scope.showRelatedInvoiceError = false;
     $scope.relatedInvoiceErrorMessage = '';
     
     if (c.data.credit_rows.length === 0) {
+        refreshMandatoryFilled();
         return true;
     }
 
@@ -539,10 +564,10 @@ $scope.validateRelatedInvoice = function() {
             if (formSubmitAttempted) {
                 credit.show_related_error = true;
                 credit.related_error = 'Please select a related invoice/account number.';
-                hasErrors = true;
             } else {
                 credit.show_related_error = false;
             }
+            hasErrors = true;  // CHANGED: Always set hasErrors even if not showing message
             continue;
         }
         
@@ -594,16 +619,29 @@ function refreshMandatoryFilled() {
     var allInvoicesFilled = (invoice_mandatory_filled == c.data.invoice_rows.length);
     var allCreditsFilled = (c.data.credit_rows.length === 0 || credit_mandatory_filled == c.data.credit_rows.length);
     
-    // Run validation check
-    var relatedInvoiceValid = true;
+    // NEW: Check for duplicate related invoice numbers (without showing errors)
+    var hasValidRelations = true;
     if (c.data.credit_rows.length > 0) {
-        // Mark that we're checking (for submit validation)
-        formSubmitAttempted = true;
-        relatedInvoiceValid = $scope.validateRelatedInvoice();
-        formSubmitAttempted = false;
+        // Check if more credits than invoices
+        if (c.data.credit_rows.length > c.data.invoice_rows.length) {
+            hasValidRelations = false;
+        } else {
+            // Check for duplicate related numbers
+            var usedRelatedNumbers = [];
+            for (var k = 0; k < c.data.credit_rows.length; k++) {
+                var relNum = c.data.credit_rows[k].related_invoice_number;
+                if (relNum) {
+                    if (usedRelatedNumbers.indexOf(relNum) !== -1) {
+                        hasValidRelations = false;
+                        break;
+                    }
+                    usedRelatedNumbers.push(relNum);
+                }
+            }
+        }
     }
     
-    g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError && relatedInvoiceValid));
+    g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError && hasValidRelations));
 }
 
     $scope.refreshVariables = function() {
