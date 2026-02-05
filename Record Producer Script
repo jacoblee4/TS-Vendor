@@ -10,9 +10,8 @@ var attachment_ids = producer.attachment_ids.toString().split(',');
 var invoice_pdf_dates = producer.invoice_pdf_dates.toString().split(',');
 var invoice_credit_variables = producer.invoice_credit_variables.toString().split(',');
 var related_invoice_numbers = producer.related_invoice_numbers.toString().split(',');
-var related_pdf_dates = producer.related_pdf_dates.toString().split(',');  // NEW
 
-var invoiceSysIdMap = {}; // Map invoice_number -> sys_id
+var invoiceSysIdMap = {}; // Map original_invoice_number -> sys_id
 var invoice_lines = [];
 
 // STEP 1: Create all invoices first and build the map
@@ -41,10 +40,12 @@ for (var i = 0; i < invoice_numbers.length; i++) {
         
         // Store mapping: original invoice number -> sys_id
         invoiceSysIdMap[invoice_numbers[i]] = invoiceSysId;
+        
+        gs.info('Created invoice: ' + invoice_numbers[i] + ' -> ' + invoiceSysId);
     }
 }
 
-// STEP 2: Create credits and link them using related_invoice field
+// STEP 2: Create credits and link them to parent invoices
 var creditIndex = 0;
 for (var j = 0; j < invoice_credit_variables.length; j++) {
     if (invoice_credit_variables[j] == 'credit') {
@@ -60,22 +61,18 @@ for (var j = 0; j < invoice_credit_variables.length; j++) {
         creditGR.credit_memo = invoice_amounts[j];
         creditGR.invoice_credit_variable = 'credit';
         
-        // NEW: Populate related_invoice_number and related_pdf_date fields
+        // Link to parent invoice via the parent reference field
         var relatedInvNum = related_invoice_numbers[creditIndex];
-        if (relatedInvNum) {
-            creditGR.related_invoice_number = relatedInvNum;  // NEW: String field
-            
-            if (related_pdf_dates[creditIndex]) {
-                creditGR.related_pdf_date = related_pdf_dates[creditIndex];  // NEW: Date field
-            }
-            
-            // Link to the invoice sys_id via reference field
-            if (invoiceSysIdMap[relatedInvNum]) {
-                creditGR.related_invoice = invoiceSysIdMap[relatedInvNum];
-            }
+        if (relatedInvNum && invoiceSysIdMap[relatedInvNum]) {
+            creditGR.parent = invoiceSysIdMap[relatedInvNum];
+            gs.info('Linking credit ' + invoice_numbers[j] + ' to parent invoice ' + relatedInvNum + ' (sys_id: ' + invoiceSysIdMap[relatedInvNum] + ')');
+        } else {
+            gs.warn('Credit ' + invoice_numbers[j] + ' could not be linked - related invoice "' + relatedInvNum + '" not found in map');
         }
         
         var creditSysId = creditGR.insert();
+        // Note: Business Rule will automatically populate related_invoice_number and related_pdf_date from parent
+        
         invoice_lines.push(creditSysId);
         creditIndex++;
     }
