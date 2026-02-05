@@ -48,6 +48,17 @@
 <div class="form-group" ng-repeat="row in data.credit_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
+  <!-- NEW: Related Invoice Number Field -->
+  <div style="margin-top:7px;">
+    <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.related_invoice_number != ''}"
+          title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
+          aria-hidden="false"></span>
+    <label>Related Invoice/Account Number</label>
+    <div class="info-text">Enter the Invoice/Account Number this credit relates to</div>
+    <input type="text" class="form-control" ng-model="row.related_invoice_number" ng-change="refreshVariables()" ng-blur="validateRelatedInvoice()"/>
+    <div class="error-message" ng-show="row.show_related_error">{{row.related_error}}</div>
+  </div>
+  
   <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': isDateFilled(row.invoice_pdf_date)}"
         title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
         aria-hidden="false"></span>
@@ -91,6 +102,12 @@
 <div class="warning-bubble" ng-show="showTotalError">
   <span class="glyphicon glyphicon-warning-sign" style="margin-right: 8px;"></span>
   The credit amount cannot exceed invoice amount. Current total: <strong>{{currentTotal}}</strong>
+</div>
+
+<!-- NEW: Related Invoice Validation Error -->
+<div class="warning-bubble" ng-show="showRelatedInvoiceError" style="background-color: #f2dede; border-color: #ebccd1; color: #a94442;">
+  <span class="glyphicon glyphicon-warning-sign" style="margin-right: 8px; color: #d9534f;"></span>
+  <strong>{{relatedInvoiceErrorMessage}}</strong>
 </div>
 
 
@@ -274,11 +291,9 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     function isDateFilled(dateValue) {
         if (!dateValue) return false;
         if (dateValue === '') return false;
-        // Handle Date objects
         if (dateValue instanceof Date) {
             return !isNaN(dateValue.getTime());
         }
-        // Handle date strings
         if (typeof dateValue === 'string') {
             return dateValue.length > 0 && dateValue !== 'mm/dd/yyyy';
         }
@@ -287,20 +302,19 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
     function isAmountFilled(amount, type) {
         if (!amount || amount === '') return false;
-        // For credits, don't consider just "-" as filled
         if (type === 'credit' && amount === '-') return false;
-        // Check if it has actual numeric content
         var cleanAmount = amount.replace(/[,$-]/g, '');
         return cleanAmount.length > 0;
     }
 
-    // Expose helper functions to scope for use in HTML template
     $scope.isDateFilled = isDateFilled;
     $scope.isAmountFilled = isAmountFilled;
 
     $scope.showTotalError = false;
     $scope.currentTotal = '$0.00';
     $scope.hideAddInvoiceButton = false;
+    $scope.showRelatedInvoiceError = false;
+    $scope.relatedInvoiceErrorMessage = '';
 
     $scope.addRow = function(type) {
         var row = {
@@ -312,6 +326,12 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             invoice_error: type === 'invoice' ? 'Invalid currency format or must be positive.' : 'Invalid currency format or must be negative.',
             show_invoice_error: false
         };
+
+        if (type === 'credit') {
+            row.related_invoice_number = '';
+            row.related_error = 'This field is required and must match an invoice number.';
+            row.show_related_error = false;
+        }
 
         if (type === 'invoice') {
             c.data.invoice_rows.push(row);
@@ -345,7 +365,6 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
     setupAttachmentHandler();
 
-    // Watch for partial_pay_indicator changes
     $scope.$watch(function() {
         return g_form.getValue('partial_pay_indicator');
     }, function(newValue, oldValue) {
@@ -460,6 +479,72 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         });
     }
 
+    // NEW: Validate Related Invoice Numbers
+    $scope.validateRelatedInvoice = function() {
+        $scope.showRelatedInvoiceError = false;
+        $scope.relatedInvoiceErrorMessage = '';
+        
+        if (c.data.credit_rows.length === 0) {
+            return true;
+        }
+
+        // Build list of invoice numbers
+        var invoiceNumbers = [];
+        for (var i = 0; i < c.data.invoice_rows.length; i++) {
+            if (c.data.invoice_rows[i].invoice_number) {
+                invoiceNumbers.push(c.data.invoice_rows[i].invoice_number.trim());
+            }
+        }
+
+        // Check if we have more credits than invoices
+        if (c.data.credit_rows.length > c.data.invoice_rows.length) {
+            $scope.showRelatedInvoiceError = true;
+            $scope.relatedInvoiceErrorMessage = 'Cannot have more credit memos than invoices. You have ' + c.data.credit_rows.length + ' credits but only ' + c.data.invoice_rows.length + ' invoice(s).';
+            refreshMandatoryFilled();
+            return false;
+        }
+
+        // Track used related numbers to check for duplicates
+        var usedRelatedNumbers = [];
+        
+        for (var j = 0; j < c.data.credit_rows.length; j++) {
+            var credit = c.data.credit_rows[j];
+            var relatedNum = credit.related_invoice_number ? credit.related_invoice_number.trim() : '';
+            
+            // Check if field is filled
+            if (!relatedNum) {
+                credit.show_related_error = true;
+                credit.related_error = 'This field is required.';
+                continue;
+            }
+            
+            // Check if it matches an invoice number
+            if (invoiceNumbers.indexOf(relatedNum) === -1) {
+                credit.show_related_error = true;
+                credit.related_error = 'Must match an Invoice/Account Number: ' + invoiceNumbers.join(', ');
+                $scope.showRelatedInvoiceError = true;
+                $scope.relatedInvoiceErrorMessage = 'Credit memo references invoice number "' + relatedNum + '" which does not exist.';
+                continue;
+            }
+            
+            // Check for duplicates
+            if (usedRelatedNumbers.indexOf(relatedNum) !== -1) {
+                credit.show_related_error = true;
+                credit.related_error = 'Each credit must relate to a unique invoice. "' + relatedNum + '" is already used.';
+                $scope.showRelatedInvoiceError = true;
+                $scope.relatedInvoiceErrorMessage = 'Multiple credits cannot reference the same invoice "' + relatedNum + '". Each invoice can have only one credit.';
+                continue;
+            }
+            
+            // All validations passed
+            usedRelatedNumbers.push(relatedNum);
+            credit.show_related_error = false;
+        }
+        
+        refreshMandatoryFilled();
+        return !$scope.showRelatedInvoiceError;
+    };
+
     function refreshMandatoryFilled() {
         var invoice_mandatory_filled = 0;
         var credit_mandatory_filled = 0;
@@ -478,6 +563,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             var creditRow = c.data.credit_rows[j];
             if (isDateFilled(creditRow.invoice_pdf_date) && 
                 creditRow.invoice_number != '' && 
+                creditRow.related_invoice_number != '' &&
                 isAmountFilled(creditRow.invoice_amount, 'credit') && 
                 creditRow.attachmentCount > 0) {
                 credit_mandatory_filled++;
@@ -487,23 +573,27 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         var allInvoicesFilled = (invoice_mandatory_filled == c.data.invoice_rows.length);
         var allCreditsFilled = (c.data.credit_rows.length === 0 || credit_mandatory_filled == c.data.credit_rows.length);
         
-        g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError));
+        // Run validation check
+        var relatedInvoiceValid = true;
+        if (c.data.credit_rows.length > 0) {
+            relatedInvoiceValid = $scope.validateRelatedInvoice();
+        }
+        
+        g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError && relatedInvoiceValid));
     }
 
     $scope.refreshVariables = function() {
-        var invoiceAccountToggle = g_form.getValue('invoice_account_toggle');
-
         var invoice_numbers = '';
         var invoice_amounts = '';
         var attachment_ids = '';
         var invoice_pdf_dates = '';
         var invoice_credit_variables = '';
+        var related_invoice_numbers = '';
 
         // Process invoice rows
         for (var i = 0; i < c.data.invoice_rows.length; i++) {
             var invRow = c.data.invoice_rows[i];
             
-            // Convert Date object to YYYY-MM-DD string
             var dateString = '';
             if (invRow.invoice_pdf_date) {
                 if (invRow.invoice_pdf_date instanceof Date) {
@@ -517,7 +607,6 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
                 }
             }
             
-            // NO MORE _MMYY LOGIC - just pass the raw invoice number
             invoice_numbers += invRow.invoice_number + ',';
             invoice_amounts += invRow.invoice_amount + ',';
             attachment_ids += invRow.id + ',';
@@ -525,7 +614,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             invoice_credit_variables += 'invoice,';
         }
 
-        // Process credit rows (same - no transformation)
+        // Process credit rows
         for (var j = 0; j < c.data.credit_rows.length; j++) {
             var credRow = c.data.credit_rows[j];
             
@@ -547,6 +636,7 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
             attachment_ids += credRow.id + ',';
             invoice_pdf_dates += creditDateString + ',';
             invoice_credit_variables += 'credit,';
+            related_invoice_numbers += (credRow.related_invoice_number || '') + ',';
         }
 
         // Remove trailing commas
@@ -555,14 +645,17 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         attachment_ids = attachment_ids.slice(0, -1);
         invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
         invoice_credit_variables = invoice_credit_variables.slice(0, -1);
+        related_invoice_numbers = related_invoice_numbers.slice(0, -1);
 
         g_form.setValue('invoice_numbers', invoice_numbers);
         g_form.setValue('invoice_amounts', invoice_amounts);
         g_form.setValue('attachment_ids', attachment_ids);
         g_form.setValue('invoice_pdf_dates', invoice_pdf_dates);
         g_form.setValue('invoice_credit_variables', invoice_credit_variables);
+        g_form.setValue('related_invoice_numbers', related_invoice_numbers);
 
         calculateTotal();
+        $scope.validateRelatedInvoice();
         refreshMandatoryFilled();
     };
 
