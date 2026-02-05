@@ -48,7 +48,7 @@
 <div class="form-group" ng-repeat="row in data.credit_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
- <!-- NEW: Related Invoice Dropdown (dynamically populated) -->
+<!-- NEW: Related Invoice Dropdown (dynamically populated) -->
 <div style="margin-top:7px;">
   <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.related_invoice_number != '' && row.related_invoice_number != null}"
         title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
@@ -63,13 +63,15 @@
   </select>
   <div class="error-message" ng-show="row.show_related_error">{{row.related_error}}</div>
 </div>
-  
+
+<div style="margin-top:15px;">  <!-- ADDED MORE SPACING HERE -->
   <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': isDateFilled(row.invoice_pdf_date)}"
         title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
         aria-hidden="false"></span>
   <label>Invoice date</label>
-    <div class="info-text">Enter the Invoice Date located on the PDF</div>
+  <div class="info-text">Enter the Invoice Date located on the PDF</div>
   <input type="date" class="form-control" ng-model="row.invoice_pdf_date" ng-change="refreshVariables()"/>
+</div>
   
   <div style="margin-top:7px;">
     <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.invoice_number != ''}"
@@ -370,30 +372,42 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
 
     setupAttachmentHandler();
 
-    $scope.$watch(function() {
-        return g_form.getValue('partial_pay_indicator');
-    }, function(newValue, oldValue) {
-        if (newValue === 'Yes') {
-            $scope.hideAddInvoiceButton = true;
+    // Watch for partial_pay_indicator changes
+$scope.$watch(function() {
+    return g_form.getValue('partial_pay_indicator');
+}, function(newValue, oldValue) {
+    if (newValue === 'Yes') {
+        $scope.hideAddInvoiceButton = true;
+        
+        if (c.data.invoice_rows.length > 1) {
+            // Get the invoice number we're keeping (first one)
+            var keptInvoiceNumber = c.data.invoice_rows[0].invoice_number;
             
-            if (c.data.invoice_rows.length > 1) {
-                for (var i = c.data.invoice_rows.length - 1; i > 0; i--) {
-                    var row_id = c.data.invoice_rows[i].id;
-                    
-                    c.server.get({
-                        action: 'delete_row',
-                        row_id: row_id
-                    });
-                    
-                    c.data.invoice_rows.splice(i, 1);
-                }
+            // Delete extra invoices
+            for (var i = c.data.invoice_rows.length - 1; i > 0; i--) {
+                var row_id = c.data.invoice_rows[i].id;
                 
-                $scope.refreshVariables();
+                c.server.get({
+                    action: 'delete_row',
+                    row_id: row_id
+                });
+                
+                c.data.invoice_rows.splice(i, 1);
             }
-        } else {
-            $scope.hideAddInvoiceButton = false;
+            
+            // Reset credits that were linked to deleted invoices
+            for (var j = 0; j < c.data.credit_rows.length; j++) {
+                if (c.data.credit_rows[j].related_invoice_number !== keptInvoiceNumber) {
+                    c.data.credit_rows[j].related_invoice_number = '';  // Reset to default
+                }
+            }
+            
+            $scope.refreshVariables();
         }
-    });
+    } else {
+        $scope.hideAddInvoiceButton = false;
+    }
+});
 
     $scope.$watch(function() {
         return g_form.getValue('invoice_account_toggle');
@@ -593,81 +607,107 @@ function refreshMandatoryFilled() {
 }
 
     $scope.refreshVariables = function() {
-        var invoice_numbers = '';
-        var invoice_amounts = '';
-        var attachment_ids = '';
-        var invoice_pdf_dates = '';
-        var invoice_credit_variables = '';
-        var related_invoice_numbers = '';
+    var invoice_numbers = '';
+    var invoice_amounts = '';
+    var attachment_ids = '';
+    var invoice_pdf_dates = '';
+    var invoice_credit_variables = '';
+    var related_invoice_numbers = '';
+    var related_pdf_dates = '';  // NEW
 
-        // Process invoice rows
-        for (var i = 0; i < c.data.invoice_rows.length; i++) {
-            var invRow = c.data.invoice_rows[i];
-            
-            var dateString = '';
-            if (invRow.invoice_pdf_date) {
-                if (invRow.invoice_pdf_date instanceof Date) {
-                    var d = invRow.invoice_pdf_date;
-                    var month = String(d.getMonth() + 1).padStart(2, '0');
-                    var day = String(d.getDate()).padStart(2, '0');
-                    var year = d.getFullYear();
-                    dateString = year + '-' + month + '-' + day;
-                } else {
-                    dateString = invRow.invoice_pdf_date;
+    // Process invoice rows
+    for (var i = 0; i < c.data.invoice_rows.length; i++) {
+        var invRow = c.data.invoice_rows[i];
+        
+        var dateString = '';
+        if (invRow.invoice_pdf_date) {
+            if (invRow.invoice_pdf_date instanceof Date) {
+                var d = invRow.invoice_pdf_date;
+                var month = String(d.getMonth() + 1).padStart(2, '0');
+                var day = String(d.getDate()).padStart(2, '0');
+                var year = d.getFullYear();
+                dateString = year + '-' + month + '-' + day;
+            } else {
+                dateString = invRow.invoice_pdf_date;
+            }
+        }
+        
+        invoice_numbers += invRow.invoice_number + ',';
+        invoice_amounts += invRow.invoice_amount + ',';
+        attachment_ids += invRow.id + ',';
+        invoice_pdf_dates += dateString + ',';
+        invoice_credit_variables += 'invoice,';
+    }
+
+    // Process credit rows
+    for (var j = 0; j < c.data.credit_rows.length; j++) {
+        var credRow = c.data.credit_rows[j];
+        
+        var creditDateString = '';
+        if (credRow.invoice_pdf_date) {
+            if (credRow.invoice_pdf_date instanceof Date) {
+                var d = credRow.invoice_pdf_date;
+                var month = String(d.getMonth() + 1).padStart(2, '0');
+                var day = String(d.getDate()).padStart(2, '0');
+                var year = d.getFullYear();
+                creditDateString = year + '-' + month + '-' + day;
+            } else {
+                creditDateString = credRow.invoice_pdf_date;
+            }
+        }
+        
+        invoice_numbers += credRow.invoice_number + ',';
+        invoice_amounts += credRow.invoice_amount + ',';
+        attachment_ids += credRow.id + ',';
+        invoice_pdf_dates += creditDateString + ',';
+        invoice_credit_variables += 'credit,';
+        related_invoice_numbers += (credRow.related_invoice_number || '') + ',';
+        
+        // NEW: Find the related invoice's PDF date
+        var relatedPdfDate = '';
+        if (credRow.related_invoice_number) {
+            for (var k = 0; k < c.data.invoice_rows.length; k++) {
+                if (c.data.invoice_rows[k].invoice_number === credRow.related_invoice_number) {
+                    // Found the related invoice, get its PDF date
+                    if (c.data.invoice_rows[k].invoice_pdf_date) {
+                        if (c.data.invoice_rows[k].invoice_pdf_date instanceof Date) {
+                            var d = c.data.invoice_rows[k].invoice_pdf_date;
+                            var month = String(d.getMonth() + 1).padStart(2, '0');
+                            var day = String(d.getDate()).padStart(2, '0');
+                            var year = d.getFullYear();
+                            relatedPdfDate = year + '-' + month + '-' + day;
+                        } else {
+                            relatedPdfDate = c.data.invoice_rows[k].invoice_pdf_date;
+                        }
+                    }
+                    break;
                 }
             }
-            
-            invoice_numbers += invRow.invoice_number + ',';
-            invoice_amounts += invRow.invoice_amount + ',';
-            attachment_ids += invRow.id + ',';
-            invoice_pdf_dates += dateString + ',';
-            invoice_credit_variables += 'invoice,';
         }
+        related_pdf_dates += relatedPdfDate + ',';
+    }
 
-        // Process credit rows
-        for (var j = 0; j < c.data.credit_rows.length; j++) {
-            var credRow = c.data.credit_rows[j];
-            
-            var creditDateString = '';
-            if (credRow.invoice_pdf_date) {
-                if (credRow.invoice_pdf_date instanceof Date) {
-                    var d = credRow.invoice_pdf_date;
-                    var month = String(d.getMonth() + 1).padStart(2, '0');
-                    var day = String(d.getDate()).padStart(2, '0');
-                    var year = d.getFullYear();
-                    creditDateString = year + '-' + month + '-' + day;
-                } else {
-                    creditDateString = credRow.invoice_pdf_date;
-                }
-            }
-            
-            invoice_numbers += credRow.invoice_number + ',';
-            invoice_amounts += credRow.invoice_amount + ',';
-            attachment_ids += credRow.id + ',';
-            invoice_pdf_dates += creditDateString + ',';
-            invoice_credit_variables += 'credit,';
-            related_invoice_numbers += (credRow.related_invoice_number || '') + ',';
-        }
+    // Remove trailing commas
+    invoice_numbers = invoice_numbers.slice(0, -1);
+    invoice_amounts = invoice_amounts.slice(0, -1);
+    attachment_ids = attachment_ids.slice(0, -1);
+    invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
+    invoice_credit_variables = invoice_credit_variables.slice(0, -1);
+    related_invoice_numbers = related_invoice_numbers.slice(0, -1);
+    related_pdf_dates = related_pdf_dates.slice(0, -1);  // NEW
 
-        // Remove trailing commas
-        invoice_numbers = invoice_numbers.slice(0, -1);
-        invoice_amounts = invoice_amounts.slice(0, -1);
-        attachment_ids = attachment_ids.slice(0, -1);
-        invoice_pdf_dates = invoice_pdf_dates.slice(0, -1);
-        invoice_credit_variables = invoice_credit_variables.slice(0, -1);
-        related_invoice_numbers = related_invoice_numbers.slice(0, -1);
+    g_form.setValue('invoice_numbers', invoice_numbers);
+    g_form.setValue('invoice_amounts', invoice_amounts);
+    g_form.setValue('attachment_ids', attachment_ids);
+    g_form.setValue('invoice_pdf_dates', invoice_pdf_dates);
+    g_form.setValue('invoice_credit_variables', invoice_credit_variables);
+    g_form.setValue('related_invoice_numbers', related_invoice_numbers);
+    g_form.setValue('related_pdf_dates', related_pdf_dates);  // NEW
 
-        g_form.setValue('invoice_numbers', invoice_numbers);
-        g_form.setValue('invoice_amounts', invoice_amounts);
-        g_form.setValue('attachment_ids', attachment_ids);
-        g_form.setValue('invoice_pdf_dates', invoice_pdf_dates);
-        g_form.setValue('invoice_credit_variables', invoice_credit_variables);
-        g_form.setValue('related_invoice_numbers', related_invoice_numbers);
-
-        calculateTotal();
-        $scope.validateRelatedInvoice();
-        refreshMandatoryFilled();
-    };
+    calculateTotal();
+    $scope.validateRelatedInvoice();
+    refreshMandatoryFilled();
+};
 
     function calculateTotal() {
         var total = 0;
