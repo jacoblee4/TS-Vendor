@@ -1,8 +1,7 @@
 (function executeRule(current, previous /*null when async*/) {
     
-    // Only proceed if we have an original invoice number
+    // PART 1: Construct invoice number (existing logic)
     if (!current.original_invoice_number) {
-        // If invoice_number exists but original doesn't, copy it over (data migration scenario)
         if (current.invoice_number) {
             current.original_invoice_number = current.invoice_number;
         } else {
@@ -11,11 +10,25 @@
         }
     }
 
-    // Use the Script Include to construct the invoice number
     var utils = new VendorProgramPortalUtilsBase();
     var constructedNumber = utils.constructInvoiceNumber(current);
-    
-    // Set the invoice_number field
     current.invoice_number = constructedNumber;
+
+    // PART 2: If this is a credit with a parent, sync related fields from parent
+    if (current.invoice_credit_variable == 'credit' && current.parent) {
+        // Check if parent field changed or is being set for first time
+        var parentChanged = current.parent.changes();
+        
+        if (parentChanged) {
+            var parentInvoice = current.parent.getRefRecord();
+            if (parentInvoice && parentInvoice.isValidRecord()) {
+                current.related_invoice_number = parentInvoice.getValue('invoice_number');
+                current.related_pdf_date = parentInvoice.getValue('invoice_pdf_date');
+                
+                gs.info('Credit ' + current.number + ' synced related fields from parent invoice ' + 
+                        parentInvoice.getValue('number'));
+            }
+        }
+    }
 
 })(current, previous);
