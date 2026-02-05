@@ -48,21 +48,21 @@
 <div class="form-group" ng-repeat="row in data.credit_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
-  <!-- NEW: Related Invoice Dropdown (dynamically populated) -->
-  <div style="margin-top:7px;">
-    <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.related_invoice_number != ''}"
-          title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
-          aria-hidden="false"></span>
-    <label>Related Invoice/Account Number</label>
-    <div class="info-text">Select the Invoice/Account Number this credit relates to</div>
-    <select class="form-control" ng-model="row.related_invoice_number" ng-change="validateRelatedInvoice()">
-      <option value="">-- Select Invoice/Account Number --</option>
-      <option ng-repeat="inv in data.invoice_rows" value="{{inv.invoice_number}}" ng-disabled="!inv.invoice_number">
-        {{inv.invoice_number || 'Invoice #' + ($index + 1) + ' (enter number first)'}}
-      </option>
-    </select>
-    <div class="error-message" ng-show="row.show_related_error">{{row.related_error}}</div>
-  </div>
+ <!-- NEW: Related Invoice Dropdown (dynamically populated) -->
+<div style="margin-top:7px;">
+  <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.related_invoice_number != '' && row.related_invoice_number != null}"
+        title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
+        aria-hidden="false"></span>
+  <label>Related Invoice/Account Number</label>
+  <div class="info-text">Select the Invoice/Account Number this credit relates to</div>
+  <select class="form-control" ng-model="row.related_invoice_number" ng-change="validateRelatedInvoice()">
+    <option value="">-- Select Invoice/Account Number --</option>
+    <option ng-repeat="inv in data.invoice_rows" ng-if="inv.invoice_number" value="{{inv.invoice_number}}">
+      {{inv.invoice_number}}
+    </option>
+  </select>
+  <div class="error-message" ng-show="row.show_related_error">{{row.related_error}}</div>
+</div>
   
   <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': isDateFilled(row.invoice_pdf_date)}"
         title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
@@ -484,7 +484,10 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
         });
     }
 
-    // NEW: Validate Related Invoice Numbers
+   // Track if form has been submitted (to show validation errors)
+var formSubmitAttempted = false;
+
+// NEW: Validate Related Invoice Numbers
 $scope.validateRelatedInvoice = function() {
     $scope.showRelatedInvoiceError = false;
     $scope.relatedInvoiceErrorMessage = '';
@@ -517,20 +520,24 @@ $scope.validateRelatedInvoice = function() {
         var credit = c.data.credit_rows[j];
         var relatedNum = credit.related_invoice_number ? credit.related_invoice_number.trim() : '';
         
-        // Check if field is filled
+        // Only show error if form has been submitted or user has interacted with this field
         if (!relatedNum) {
-            credit.show_related_error = true;
-            credit.related_error = 'Please select a related invoice number.';
-            hasErrors = true;
+            if (formSubmitAttempted) {
+                credit.show_related_error = true;
+                credit.related_error = 'Please select a related invoice/account number.';
+                hasErrors = true;
+            } else {
+                credit.show_related_error = false;
+            }
             continue;
         }
         
         // Check for duplicates (same invoice referenced twice)
         if (usedRelatedNumbers.indexOf(relatedNum) !== -1) {
             credit.show_related_error = true;
-            credit.related_error = 'This invoice is already referenced by another credit. Each invoice can only have one credit.';
+            credit.related_error = 'This invoice/account number is already related by another credit memo.';
             $scope.showRelatedInvoiceError = true;
-            $scope.relatedInvoiceErrorMessage = 'Multiple credits cannot reference the same invoice "' + relatedNum + '". Each invoice can have only one credit.';
+            $scope.relatedInvoiceErrorMessage = 'Multiple credits cannot reference the same invoice/account "' + relatedNum + '". Each invoice can have only one credit.';
             hasErrors = true;
             continue;
         }
@@ -544,42 +551,46 @@ $scope.validateRelatedInvoice = function() {
     return !hasErrors && !$scope.showRelatedInvoiceError;
 };
 
-    function refreshMandatoryFilled() {
-        var invoice_mandatory_filled = 0;
-        var credit_mandatory_filled = 0;
+function refreshMandatoryFilled() {
+    var invoice_mandatory_filled = 0;
+    var credit_mandatory_filled = 0;
 
-        for (var i = 0; i < c.data.invoice_rows.length; i++) {
-            var row = c.data.invoice_rows[i];
-            if (isDateFilled(row.invoice_pdf_date) && 
-                row.invoice_number != '' && 
-                isAmountFilled(row.invoice_amount, 'invoice') && 
-                row.attachmentCount > 0) {
-                invoice_mandatory_filled++;
-            }
+    for (var i = 0; i < c.data.invoice_rows.length; i++) {
+        var row = c.data.invoice_rows[i];
+        if (isDateFilled(row.invoice_pdf_date) && 
+            row.invoice_number != '' && 
+            isAmountFilled(row.invoice_amount, 'invoice') && 
+            row.attachmentCount > 0) {
+            invoice_mandatory_filled++;
         }
-
-        for (var j = 0; j < c.data.credit_rows.length; j++) {
-            var creditRow = c.data.credit_rows[j];
-            if (isDateFilled(creditRow.invoice_pdf_date) && 
-                creditRow.invoice_number != '' && 
-                creditRow.related_invoice_number != '' &&
-                isAmountFilled(creditRow.invoice_amount, 'credit') && 
-                creditRow.attachmentCount > 0) {
-                credit_mandatory_filled++;
-            }
-        }
-
-        var allInvoicesFilled = (invoice_mandatory_filled == c.data.invoice_rows.length);
-        var allCreditsFilled = (c.data.credit_rows.length === 0 || credit_mandatory_filled == c.data.credit_rows.length);
-        
-        // Run validation check
-        var relatedInvoiceValid = true;
-        if (c.data.credit_rows.length > 0) {
-            relatedInvoiceValid = $scope.validateRelatedInvoice();
-        }
-        
-        g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError && relatedInvoiceValid));
     }
+
+    for (var j = 0; j < c.data.credit_rows.length; j++) {
+        var creditRow = c.data.credit_rows[j];
+        if (isDateFilled(creditRow.invoice_pdf_date) && 
+            creditRow.invoice_number != '' && 
+            creditRow.related_invoice_number != '' &&
+            creditRow.related_invoice_number != null &&
+            isAmountFilled(creditRow.invoice_amount, 'credit') && 
+            creditRow.attachmentCount > 0) {
+            credit_mandatory_filled++;
+        }
+    }
+
+    var allInvoicesFilled = (invoice_mandatory_filled == c.data.invoice_rows.length);
+    var allCreditsFilled = (c.data.credit_rows.length === 0 || credit_mandatory_filled == c.data.credit_rows.length);
+    
+    // Run validation check
+    var relatedInvoiceValid = true;
+    if (c.data.credit_rows.length > 0) {
+        // Mark that we're checking (for submit validation)
+        formSubmitAttempted = true;
+        relatedInvoiceValid = $scope.validateRelatedInvoice();
+        formSubmitAttempted = false;
+    }
+    
+    g_form.setValue('mandatory_filled', (allInvoicesFilled && allCreditsFilled && invoiceAmountFilled && !$scope.showTotalError && relatedInvoiceValid));
+}
 
     $scope.refreshVariables = function() {
         var invoice_numbers = '';
