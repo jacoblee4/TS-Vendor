@@ -17,9 +17,5 @@
     
     // Set the invoice_number field
     current.invoice_number = constructedNumber;
-    
-    // Log for debugging (optional - remove in production if desired)
-    gs.info('Invoice Number Set: ' + current.number + ' -> ' + constructedNumber + 
-            ' (Original: ' + current.original_invoice_number + ')');
 
 })(current, previous);
