@@ -48,14 +48,19 @@
 <div class="form-group" ng-repeat="row in data.credit_rows track by $index">
   <hr style="border-width: 1px;" ng-if="$index > 0">
   
-  <!-- NEW: Related Invoice Number Field -->
+  <!-- NEW: Related Invoice Dropdown (dynamically populated) -->
   <div style="margin-top:7px;">
     <span class="fa fa-asterisk mandatory" ng-class="{'mandatory-filled': row.related_invoice_number != ''}"
           title="Required" style="padding-right: 0.25em;" aria-label="Required Filled "
           aria-hidden="false"></span>
     <label>Related Invoice/Account Number</label>
-    <div class="info-text">Enter the Invoice/Account Number this credit relates to</div>
-    <input type="text" class="form-control" ng-model="row.related_invoice_number" ng-change="refreshVariables()" ng-blur="validateRelatedInvoice()"/>
+    <div class="info-text">Select the Invoice/Account Number this credit relates to</div>
+    <select class="form-control" ng-model="row.related_invoice_number" ng-change="validateRelatedInvoice()">
+      <option value="">-- Select Invoice/Account Number --</option>
+      <option ng-repeat="inv in data.invoice_rows" value="{{inv.invoice_number}}" ng-disabled="!inv.invoice_number">
+        {{inv.invoice_number || 'Invoice #' + ($index + 1) + ' (enter number first)'}}
+      </option>
+    </select>
     <div class="error-message" ng-show="row.show_related_error">{{row.related_error}}</div>
   </div>
   
@@ -480,70 +485,64 @@ api.controller = function($scope, $uibModal, nowAttachmentHandler, spUtil) {
     }
 
     // NEW: Validate Related Invoice Numbers
-    $scope.validateRelatedInvoice = function() {
-        $scope.showRelatedInvoiceError = false;
-        $scope.relatedInvoiceErrorMessage = '';
-        
-        if (c.data.credit_rows.length === 0) {
-            return true;
-        }
+$scope.validateRelatedInvoice = function() {
+    $scope.showRelatedInvoiceError = false;
+    $scope.relatedInvoiceErrorMessage = '';
+    
+    if (c.data.credit_rows.length === 0) {
+        return true;
+    }
 
-        // Build list of invoice numbers
-        var invoiceNumbers = [];
-        for (var i = 0; i < c.data.invoice_rows.length; i++) {
-            if (c.data.invoice_rows[i].invoice_number) {
-                invoiceNumbers.push(c.data.invoice_rows[i].invoice_number.trim());
-            }
+    // Build list of invoice numbers (for count check)
+    var invoiceNumbers = [];
+    for (var i = 0; i < c.data.invoice_rows.length; i++) {
+        if (c.data.invoice_rows[i].invoice_number) {
+            invoiceNumbers.push(c.data.invoice_rows[i].invoice_number.trim());
         }
+    }
 
-        // Check if we have more credits than invoices
-        if (c.data.credit_rows.length > c.data.invoice_rows.length) {
-            $scope.showRelatedInvoiceError = true;
-            $scope.relatedInvoiceErrorMessage = 'Cannot have more credit memos than invoices. You have ' + c.data.credit_rows.length + ' credits but only ' + c.data.invoice_rows.length + ' invoice(s).';
-            refreshMandatoryFilled();
-            return false;
-        }
-
-        // Track used related numbers to check for duplicates
-        var usedRelatedNumbers = [];
-        
-        for (var j = 0; j < c.data.credit_rows.length; j++) {
-            var credit = c.data.credit_rows[j];
-            var relatedNum = credit.related_invoice_number ? credit.related_invoice_number.trim() : '';
-            
-            // Check if field is filled
-            if (!relatedNum) {
-                credit.show_related_error = true;
-                credit.related_error = 'This field is required.';
-                continue;
-            }
-            
-            // Check if it matches an invoice number
-            if (invoiceNumbers.indexOf(relatedNum) === -1) {
-                credit.show_related_error = true;
-                credit.related_error = 'Must match an Invoice/Account Number: ' + invoiceNumbers.join(', ');
-                $scope.showRelatedInvoiceError = true;
-                $scope.relatedInvoiceErrorMessage = 'Credit memo references invoice number "' + relatedNum + '" which does not exist.';
-                continue;
-            }
-            
-            // Check for duplicates
-            if (usedRelatedNumbers.indexOf(relatedNum) !== -1) {
-                credit.show_related_error = true;
-                credit.related_error = 'Each credit must relate to a unique invoice. "' + relatedNum + '" is already used.';
-                $scope.showRelatedInvoiceError = true;
-                $scope.relatedInvoiceErrorMessage = 'Multiple credits cannot reference the same invoice "' + relatedNum + '". Each invoice can have only one credit.';
-                continue;
-            }
-            
-            // All validations passed
-            usedRelatedNumbers.push(relatedNum);
-            credit.show_related_error = false;
-        }
-        
+    // Check if we have more credits than invoices
+    if (c.data.credit_rows.length > c.data.invoice_rows.length) {
+        $scope.showRelatedInvoiceError = true;
+        $scope.relatedInvoiceErrorMessage = 'Cannot have more credit memos than invoices. You have ' + c.data.credit_rows.length + ' credits but only ' + c.data.invoice_rows.length + ' invoice(s).';
         refreshMandatoryFilled();
-        return !$scope.showRelatedInvoiceError;
-    };
+        return false;
+    }
+
+    // Track used related numbers to check for duplicates
+    var usedRelatedNumbers = [];
+    var hasErrors = false;
+    
+    for (var j = 0; j < c.data.credit_rows.length; j++) {
+        var credit = c.data.credit_rows[j];
+        var relatedNum = credit.related_invoice_number ? credit.related_invoice_number.trim() : '';
+        
+        // Check if field is filled
+        if (!relatedNum) {
+            credit.show_related_error = true;
+            credit.related_error = 'Please select a related invoice number.';
+            hasErrors = true;
+            continue;
+        }
+        
+        // Check for duplicates (same invoice referenced twice)
+        if (usedRelatedNumbers.indexOf(relatedNum) !== -1) {
+            credit.show_related_error = true;
+            credit.related_error = 'This invoice is already referenced by another credit. Each invoice can only have one credit.';
+            $scope.showRelatedInvoiceError = true;
+            $scope.relatedInvoiceErrorMessage = 'Multiple credits cannot reference the same invoice "' + relatedNum + '". Each invoice can have only one credit.';
+            hasErrors = true;
+            continue;
+        }
+        
+        // All validations passed
+        usedRelatedNumbers.push(relatedNum);
+        credit.show_related_error = false;
+    }
+    
+    refreshMandatoryFilled();
+    return !hasErrors && !$scope.showRelatedInvoiceError;
+};
 
     function refreshMandatoryFilled() {
         var invoice_mandatory_filled = 0;
