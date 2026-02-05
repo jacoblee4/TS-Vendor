@@ -9,40 +9,66 @@ var invoice_amounts = producer.invoice_amounts.toString().split(',');
 var attachment_ids = producer.attachment_ids.toString().split(',');
 var invoice_pdf_dates = producer.invoice_pdf_dates.toString().split(',');
 var invoice_credit_variables = producer.invoice_credit_variables.toString().split(',');
+var related_invoice_numbers = producer.related_invoice_numbers.toString().split(',');
+
+var invoiceSysIdMap = {}; // Map invoice_number -> sys_id
 var invoice_lines = [];
 
+// STEP 1: Create all invoices first and build the map
 for (var i = 0; i < invoice_numbers.length; i++) {
-    var gr = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
-    gr.initialize();
-    gr.requested_by = producer.requested_by;
-    gr.invoice_date = producer.invoice_date;
-    gr.invoice_account_toggle = producer.invoice_account_toggle;
-    gr.supplier_name = supplier_name;
-    gr.remit_to_address = address_line_1;
-    gr.invoice_pdf_date = invoice_pdf_dates[i];
-
-    // Store the original number entered by user
-    gr.original_invoice_number = invoice_numbers[i];
-    
-    // Set partial payment fields - Business Rule will use these to construct invoice_number
-    if (producer.partial_pay_indicator == 'Yes' && invoice_credit_variables[i] == 'invoice') {
-        gr.partialpay_type = producer.partialpay_type;
-        gr.partial_pay_indicator = producer.partial_pay_indicator;
-    }
-
-    // Populate invoice_total or credit_memo based on type
     if (invoice_credit_variables[i] == 'invoice') {
-        gr.invoice_total = invoice_amounts[i];
-    } else if (invoice_credit_variables[i] == 'credit') {
-        gr.credit_memo = invoice_amounts[i];
+        var invGR = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
+        invGR.initialize();
+        invGR.requested_by = producer.requested_by;
+        invGR.invoice_date = producer.invoice_date;
+        invGR.invoice_account_toggle = producer.invoice_account_toggle;
+        invGR.supplier_name = supplier_name;
+        invGR.remit_to_address = address_line_1;
+        invGR.invoice_pdf_date = invoice_pdf_dates[i];
+        invGR.original_invoice_number = invoice_numbers[i];
+        
+        if (producer.partial_pay_indicator == 'Yes') {
+            invGR.partialpay_type = producer.partialpay_type;
+            invGR.partial_pay_indicator = producer.partial_pay_indicator;
+        }
+        
+        invGR.invoice_total = invoice_amounts[i];
+        invGR.invoice_credit_variable = 'invoice';
+        
+        var invoiceSysId = invGR.insert();
+        invoice_lines.push(invoiceSysId);
+        
+        // Store mapping: original invoice number -> sys_id
+        invoiceSysIdMap[invoice_numbers[i]] = invoiceSysId;
     }
+}
 
-    gr.invoice_credit_variable = invoice_credit_variables[i];
-
-    // Insert - Business Rule will automatically set invoice_number
-    var invoice_id = gr.insert();
-
-    invoice_lines.push(invoice_id);
+// STEP 2: Create credits and link them using related_invoice field
+var creditIndex = 0;
+for (var j = 0; j < invoice_credit_variables.length; j++) {
+    if (invoice_credit_variables[j] == 'credit') {
+        var creditGR = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
+        creditGR.initialize();
+        creditGR.requested_by = producer.requested_by;
+        creditGR.invoice_date = producer.invoice_date;
+        creditGR.invoice_account_toggle = producer.invoice_account_toggle;
+        creditGR.supplier_name = supplier_name;
+        creditGR.remit_to_address = address_line_1;
+        creditGR.invoice_pdf_date = invoice_pdf_dates[j];
+        creditGR.original_invoice_number = invoice_numbers[j];
+        creditGR.credit_memo = invoice_amounts[j];
+        creditGR.invoice_credit_variable = 'credit';
+        
+        // LINK CREDIT TO INVOICE using the related_invoice_number
+        var relatedInvNum = related_invoice_numbers[creditIndex];
+        if (relatedInvNum && invoiceSysIdMap[relatedInvNum]) {
+            creditGR.related_invoice = invoiceSysIdMap[relatedInvNum];
+        }
+        
+        var creditSysId = creditGR.insert();
+        invoice_lines.push(creditSysId);
+        creditIndex++;
+    }
 }
 
 linkAttachments();
