@@ -87,6 +87,16 @@ while (grInvoices.next()) {
     // Add credit memo value
     var isCreditMemo = (grInvoices.invoice_credit_variable == 'credit') ? 'Yes' : 'No';
     invoiceData = invoiceData + ',"' + isCreditMemo + '"';
+    
+    // Add Original Invoice Number and Original Invoice Date (only populated for credits)
+    if (grInvoices.invoice_credit_variable == 'credit') {
+        invoiceData = invoiceData + ',"' + (grInvoices.related_invoice_number || '') + '"';
+        invoiceData = invoiceData + ',"' + (grInvoices.related_pdf_date.getDisplayValue() || '') + '"';
+    } else {
+        invoiceData = invoiceData + ',""'; // Original Invoice Number - blank for invoices
+        invoiceData = invoiceData + ',""'; // Original Invoice Date - blank for invoices
+    }
+    
     invoiceData = invoiceData + "\r\n";
 
     // Row 2 of invoice data (Row d with the .match was updated per STRY0078803)
@@ -115,8 +125,13 @@ while (grInvoices.next()) {
         invoiceData = invoiceData + ',""';
     }
 
-    // Add empty column for credit memo
+    // Add empty column for credit memo (Row 2)
     invoiceData = invoiceData + ',""';
+    
+    // Add empty columns for Original Invoice Number and Original Invoice Date (Row 2)
+    invoiceData = invoiceData + ',""'; // Original Invoice Number - blank
+    invoiceData = invoiceData + ',""'; // Original Invoice Date - blank
+    
     invoiceData = invoiceData + "\r\n";
 }
 
@@ -173,6 +188,8 @@ for (let i = 0; i < attachmentCount; i++) {
     headerData = headerData + '"' + "Attachment " + (i + 1) + '",';
 }
 headerData = headerData + '"Is Credit Note",';
+headerData = headerData + '"Original Invoice Number",';
+headerData = headerData + '"Original Invoice Date",';
 headerData = headerData + "\r\n";
 
 Headers2.forEach(function(ele) {
@@ -181,7 +198,9 @@ Headers2.forEach(function(ele) {
 for (let i = 0; i < attachmentCount; i++) {
     headerData = headerData + '"",';
 }
-headerData = headerData + '"",';
+headerData = headerData + '"",'; // Is Credit Note - Row 2 blank
+headerData = headerData + '"",'; // Original Invoice Number - Row 2 blank
+headerData = headerData + '"",'; // Original Invoice Date - Row 2 blank
 headerData = headerData + "\r\n";
 
 // Combine the header and invoice data together
