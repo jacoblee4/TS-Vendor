@@ -172,7 +172,7 @@ Headers1.forEach(function(ele) {
 for (let i = 0; i < attachmentCount; i++) {
     headerData = headerData + '"' + "Attachment " + (i + 1) + '",';
 }
-headerData = headerData + '"Is Credit Memo",';
+headerData = headerData + '"Is Credit Note",';
 headerData = headerData + "\r\n";
 
 Headers2.forEach(function(ele) {
