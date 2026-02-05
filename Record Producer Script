@@ -10,6 +10,7 @@ var attachment_ids = producer.attachment_ids.toString().split(',');
 var invoice_pdf_dates = producer.invoice_pdf_dates.toString().split(',');
 var invoice_credit_variables = producer.invoice_credit_variables.toString().split(',');
 var related_invoice_numbers = producer.related_invoice_numbers.toString().split(',');
+var related_pdf_dates = producer.related_pdf_dates.toString().split(',');  // NEW
 
 var invoiceSysIdMap = {}; // Map invoice_number -> sys_id
 var invoice_lines = [];
@@ -59,10 +60,19 @@ for (var j = 0; j < invoice_credit_variables.length; j++) {
         creditGR.credit_memo = invoice_amounts[j];
         creditGR.invoice_credit_variable = 'credit';
         
-        // LINK CREDIT TO INVOICE using the related_invoice_number
+        // NEW: Populate related_invoice_number and related_pdf_date fields
         var relatedInvNum = related_invoice_numbers[creditIndex];
-        if (relatedInvNum && invoiceSysIdMap[relatedInvNum]) {
-            creditGR.related_invoice = invoiceSysIdMap[relatedInvNum];
+        if (relatedInvNum) {
+            creditGR.related_invoice_number = relatedInvNum;  // NEW: String field
+            
+            if (related_pdf_dates[creditIndex]) {
+                creditGR.related_pdf_date = related_pdf_dates[creditIndex];  // NEW: Date field
+            }
+            
+            // Link to the invoice sys_id via reference field
+            if (invoiceSysIdMap[relatedInvNum]) {
+                creditGR.related_invoice = invoiceSysIdMap[relatedInvNum];
+            }
         }
         
         var creditSysId = creditGR.insert();
