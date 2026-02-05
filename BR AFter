@@ -1,0 +1,51 @@
+(function executeRule(current, previous /*null when async*/) {
+    
+    // Only proceed if this is an invoice (not a credit)
+    if (current.invoice_credit_variable != 'invoice') {
+        return;
+    }
+    
+    // Check if invoice_number or invoice_pdf_date changed
+    var invoiceNumberChanged = current.invoice_number.changes();
+    var pdfDateChanged = current.invoice_pdf_date.changes();
+    
+    if (!invoiceNumberChanged && !pdfDateChanged) {
+        return; // Nothing to sync
+    }
+    
+    // Find all child credits that have this invoice as their parent
+    var childCredits = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
+    childCredits.addQuery('parent', current.sys_id);
+    childCredits.addQuery('invoice_credit_variable', 'credit');
+    childCredits.query();
+    
+    var updateCount = 0;
+    
+    while (childCredits.next()) {
+        var needsUpdate = false;
+        
+        // Only update if values actually differ (prevents unnecessary updates)
+        if (invoiceNumberChanged && childCredits.related_invoice_number != current.invoice_number) {
+            childCredits.related_invoice_number = current.invoice_number;
+            needsUpdate = true;
+        }
+        
+        if (pdfDateChanged && childCredits.related_pdf_date != current.invoice_pdf_date) {
+            childCredits.related_pdf_date = current.invoice_pdf_date;
+            needsUpdate = true;
+        }
+        
+        if (needsUpdate) {
+            // Use setWorkflow(false) to prevent triggering other business rules
+            // This prevents infinite loops
+            childCredits.setWorkflow(false);
+            childCredits.update();
+            updateCount++;
+        }
+    }
+    
+    if (updateCount > 0) {
+        gs.info('Invoice ' + current.number + ' synced changes to ' + updateCount + ' child credit(s)');
+    }
+
+})(current, previous);
