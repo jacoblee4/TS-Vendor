@@ -5,15 +5,12 @@ while (attachment_gr.next()) {
     attachment.deleteAttachment(attachment_gr.getUniqueValue());
 }
 
-/* Create new csv file and attach to this record */
+/* Create new csv files and attach to this record */
 
 // Defined variables
-var csvFileName = "Vendor_Prog_invoices_SNOW.csv";
+var invoiceFileName = "Vendor_Prog_invoices_SNOW.csv";
+var creditFileName = "Vendor_Prog_credits_SNOW.csv";
 var exportFolder = '/Coupa';
-var headerData = '';
-var invoiceData = '';
-var csvData = '';
-var attachmentCount = 0;
 
 //Get the mid server name
 var midServer = new GlideRecord('ecc_agent');
@@ -24,196 +21,214 @@ if (midServer.next()) {
     var mid_name = midServer.name;
 }
 
-// FIRST PASS: Determine the maximum attachment count across all invoices
-var grInvoicesCount = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
-grInvoicesCount.addQuery('approval', 'approved');
-grInvoicesCount.addQuery('invoice_status', '1'); // New
-grInvoicesCount.query();
+// Process invoices and credits separately
+processInvoiceType('invoice', invoiceFileName);
+processInvoiceType('credit', creditFileName);
 
-while (grInvoicesCount.next()) {
-    var attachments = new GlideSysAttachment().getAttachments("x_banun_submit_a_0_new_invoice_submission", grInvoicesCount.sys_id);
-    if (attachments.getRowCount() > attachmentCount) {
-        attachmentCount = attachments.getRowCount();
-    }
-}
+/* Function to process either invoices or credits */
+function processInvoiceType(fileType, csvFileName) {
+    
+    var headerData = '';
+    var invoiceData = '';
+    var csvData = '';
+    var attachmentCount = 0;
 
-// SECOND PASS: Build 2 rows of data for each invoice (now that we know attachmentCount)
-var grInvoices = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
-grInvoices.addQuery('approval', 'approved');
-grInvoices.addQuery('invoice_status', '1'); // New
-grInvoices.query();
+    // FIRST PASS: Determine the maximum attachment count across all records of this type
+    var grInvoicesCount = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
+    grInvoicesCount.addQuery('approval', 'approved');
+    grInvoicesCount.addQuery('invoice_status', '1'); // New
+    grInvoicesCount.addQuery('invoice_credit_variable', fileType); // Filter by type
+    grInvoicesCount.query();
 
-while (grInvoices.next()) {
-
-    // Row 1 of invoice data (Row d with the .match was updated per STRY0078803)
-    invoiceData = invoiceData +
-        '"Invoice",' +
-        '"' + grInvoices.invoice_number + '",' +
-        '"' + grInvoices.supplier_name.getDisplayValue() + '",' +
-        '"' + grInvoices.supplier_name.supplier_number + '",' +
-        '"' + grInvoices.invoice_date.getDisplayValue() + '",' +
-        '"Yes",' +
-        '"",' +
-        '"FALSE",' +
-        '"",' +
-        '"IMMED",' +
-        '"Chart of Accounts",' +
-        '"USD",' +
-        '"",' +
-        '"",' +
-        '"",' +
-        '"' + grInvoices.grand_total + '",' +
-        '"' + grInvoices.supplier_name.address_remit_to_code + '",' +
-        '"' + grInvoices.memo_to_recipient + '"';
-
-    // Add each attachment name to the invoice data
-    var attachments = new GlideSysAttachment().getAttachments("x_banun_submit_a_0_new_invoice_submission", grInvoices.sys_id);
-    var currentAttachmentCount = 0;
-    while (attachments.next()) {
-        if (attachments.getValue('file_name')) {
-            invoiceData = invoiceData + ',"file://' + attachments.getValue('file_name') + '"';
-            currentAttachmentCount++;
-
-            // Send each attachment to the mid server
-            sendAttachmentToMid(attachments.getValue('file_name'), 'x_banun_submit_a_0_new_invoice_submission', grInvoices.sys_id, mid_name, exportFolder);
+    while (grInvoicesCount.next()) {
+        var attachments = new GlideSysAttachment().getAttachments("x_banun_submit_a_0_new_invoice_submission", grInvoicesCount.sys_id);
+        if (attachments.getRowCount() > attachmentCount) {
+            attachmentCount = attachments.getRowCount();
         }
     }
 
-    // Pad with empty columns if this invoice has fewer attachments than the max
-    for (var i = currentAttachmentCount; i < attachmentCount; i++) {
-        invoiceData = invoiceData + ',""';
-    }
+    // SECOND PASS: Build 2 rows of data for each record (now that we know attachmentCount)
+    var grInvoices = new GlideRecord('x_banun_submit_a_0_new_invoice_submission');
+    grInvoices.addQuery('approval', 'approved');
+    grInvoices.addQuery('invoice_status', '1'); // New
+    grInvoices.addQuery('invoice_credit_variable', fileType); // Filter by type
+    grInvoices.query();
 
-    // Add credit memo value
-    var isCreditMemo = (grInvoices.invoice_credit_variable == 'credit') ? 'Yes' : 'No';
-    invoiceData = invoiceData + ',"' + isCreditMemo + '"';
-    
-    // Add Original Invoice Number and Original Invoice Date (only populated for credits)
-    if (grInvoices.invoice_credit_variable == 'credit') {
-        invoiceData = invoiceData + ',"' + (grInvoices.related_invoice_number || '') + '"';
-        invoiceData = invoiceData + ',"' + (grInvoices.related_pdf_date.getDisplayValue() || '') + '"';
-    } else {
-        invoiceData = invoiceData + ',""'; // Original Invoice Number - blank for invoices
-        invoiceData = invoiceData + ',""'; // Original Invoice Date - blank for invoices
-    }
-    
-    invoiceData = invoiceData + "\r\n";
+    while (grInvoices.next()) {
 
-    // Row 2 of invoice data (Row d with the .match was updated per STRY0078803)
-    invoiceData = invoiceData +
-        '"Invoice Line",' +
-        '"' + grInvoices.invoice_number + '",' +
-        '"' + grInvoices.supplier_name.getDisplayValue() + '",' +
-        '"' + grInvoices.supplier_name.supplier_number + '",' +
-        '"' + grInvoices.requested_by.vendor.account_nbr + '",' +
-        '"",' +
-        '"' + grInvoices.grand_total + '",' +
-        '"",' +
-        '"ea",' +
-        '"",' +
-        '"",' +
-        '"",' +
-        '"' + grInvoices.requested_by.vendor.gl1 + '",' +
-        '"' + grInvoices.requested_by.vendor.gl2 + '",' +
-        '"' + grInvoices.requested_by.vendor.gl3 + '",' +
-        '"",' +
-        '"",' +
-        '""';
+        // Row 1 of invoice data (Row d with the .match was updated per STRY0078803)
+        invoiceData = invoiceData +
+            '"Invoice",' +
+            '"' + grInvoices.invoice_number + '",' +
+            '"' + grInvoices.supplier_name.getDisplayValue() + '",' +
+            '"' + grInvoices.supplier_name.supplier_number + '",' +
+            '"' + grInvoices.invoice_date.getDisplayValue() + '",' +
+            '"Yes",' +
+            '"",' +
+            '"FALSE",' +
+            '"",' +
+            '"IMMED",' +
+            '"Chart of Accounts",' +
+            '"USD",' +
+            '"",' +
+            '"",' +
+            '"",' +
+            '"' + grInvoices.grand_total + '",' +
+            '"' + grInvoices.supplier_name.address_remit_to_code + '",' +
+            '"' + grInvoices.memo_to_recipient + '"';
+
+        // Add each attachment name to the invoice data
+        var attachments = new GlideSysAttachment().getAttachments("x_banun_submit_a_0_new_invoice_submission", grInvoices.sys_id);
+        var currentAttachmentCount = 0;
+        while (attachments.next()) {
+            if (attachments.getValue('file_name')) {
+                invoiceData = invoiceData + ',"file://' + attachments.getValue('file_name') + '"';
+                currentAttachmentCount++;
+
+                // Send each attachment to the mid server
+                sendAttachmentToMid(attachments.getValue('file_name'), 'x_banun_submit_a_0_new_invoice_submission', grInvoices.sys_id, mid_name, exportFolder);
+            }
+        }
+
+        // Pad with empty columns if this invoice has fewer attachments than the max
+        for (var i = currentAttachmentCount; i < attachmentCount; i++) {
+            invoiceData = invoiceData + ',""';
+        }
+
+        // Add credit memo value - blank for invoices, "Yes" for credits
+        if (fileType == 'credit') {
+            invoiceData = invoiceData + ',"Yes"';
+        } else {
+            invoiceData = invoiceData + ',""'; // blank for invoices
+        }
         
-    // Pad with empty columns for all attachment columns
-    for (var j = 0; j < attachmentCount; j++) {
+        // Add Original Invoice Number and Original Invoice Date (only populated for credits)
+        if (grInvoices.invoice_credit_variable == 'credit') {
+            invoiceData = invoiceData + ',"' + (grInvoices.related_invoice_number || '') + '"';
+            invoiceData = invoiceData + ',"' + (grInvoices.related_pdf_date.getDisplayValue() || '') + '"';
+        } else {
+            invoiceData = invoiceData + ',""'; // Original Invoice Number - blank for invoices
+            invoiceData = invoiceData + ',""'; // Original Invoice Date - blank for invoices
+        }
+        
+        invoiceData = invoiceData + "\r\n";
+
+        // Row 2 of invoice data (Row d with the .match was updated per STRY0078803)
+        invoiceData = invoiceData +
+            '"Invoice Line",' +
+            '"' + grInvoices.invoice_number + '",' +
+            '"' + grInvoices.supplier_name.getDisplayValue() + '",' +
+            '"' + grInvoices.supplier_name.supplier_number + '",' +
+            '"' + grInvoices.requested_by.vendor.account_nbr + '",' +
+            '"",' +
+            '"' + grInvoices.grand_total + '",' +
+            '"",' +
+            '"ea",' +
+            '"",' +
+            '"",' +
+            '"",' +
+            '"' + grInvoices.requested_by.vendor.gl1 + '",' +
+            '"' + grInvoices.requested_by.vendor.gl2 + '",' +
+            '"' + grInvoices.requested_by.vendor.gl3 + '",' +
+            '"",' +
+            '"",' +
+            '""';
+            
+        // Pad with empty columns for all attachment columns
+        for (var j = 0; j < attachmentCount; j++) {
+            invoiceData = invoiceData + ',""';
+        }
+
+        // Add empty column for credit memo (Row 2)
         invoiceData = invoiceData + ',""';
+        
+        // Add empty columns for Original Invoice Number and Original Invoice Date (Row 2)
+        invoiceData = invoiceData + ',""'; // Original Invoice Number - blank
+        invoiceData = invoiceData + ',""'; // Original Invoice Date - blank
+        
+        invoiceData = invoiceData + "\r\n";
     }
 
-    // Add empty column for credit memo (Row 2)
-    invoiceData = invoiceData + ',""';
-    
-    // Add empty columns for Original Invoice Number and Original Invoice Date (Row 2)
-    invoiceData = invoiceData + ',""'; // Original Invoice Number - blank
-    invoiceData = invoiceData + ',""'; // Original Invoice Date - blank
-    
-    invoiceData = invoiceData + "\r\n";
+    // Include 2 header rows
+    // Row 1 of header data
+    var Headers1 = [
+        "Invoice",
+        "Invoice Number*",
+        "Supplier Name",
+        "Supplier Number",
+        "Invoice Date*",
+        "Submit For Approval?",
+        "Misc Amount",
+        "Line Level Taxation*",
+        "Supplier Note",
+        "Payment Terms",
+        "Chart of Accounts*",
+        "Currency",
+        "Image Scan Filename",
+        "Image Scan URL",
+        "Local Currency Net",
+        "Invoice Control Total",
+        "Remit To Code",
+        "Memo To Recipient"
+    ];
+
+    // Row 2 of header data
+    var Headers2 = [
+        "Invoice Line",
+        "Invoice Number*",
+        "Supplier Name",
+        "Supplier Number",
+        "Description*",
+        "Supplier Part Number",
+        "Price*",
+        "Bulk Price",
+        "Unit of Measure*",
+        "Category",
+        "Account Name",
+        "Account Code",
+        "Account Segment 1",
+        "Account Segment 2",
+        "Account Segment 3",
+        "Account Segment 12",
+        "",
+        ""
+    ];
+
+    // 1 row of data is created with each forEach loop for 2 total rows of data per invoice
+    Headers1.forEach(function(ele) {
+        headerData = headerData + '"' + ele + '",';
+    });
+    for (var i = 0; i < attachmentCount; i++) {
+        headerData = headerData + '"' + "Attachment " + (i + 1) + '",';
+    }
+    headerData = headerData + '"Is Credit Note",';
+    headerData = headerData + '"Original Invoice Number",';
+    headerData = headerData + '"Original Invoice Date",';
+    headerData = headerData + "\r\n";
+
+    Headers2.forEach(function(ele) {
+        headerData = headerData + '"' + ele + '",';
+    });
+    for (var i = 0; i < attachmentCount; i++) {
+        headerData = headerData + '"",';
+    }
+    headerData = headerData + '"",'; // Is Credit Note - Row 2 blank
+    headerData = headerData + '"",'; // Original Invoice Number - Row 2 blank
+    headerData = headerData + '"",'; // Original Invoice Date - Row 2 blank
+    headerData = headerData + "\r\n";
+
+    // Combine the header and invoice data together
+    csvData = headerData + invoiceData;
+
+    // Create and attach the file to this scheduled job
+    var grRecord = new GlideRecord('sysauto_script');
+    grRecord.get(current.getUniqueValue());
+    var grAttachment = new GlideSysAttachment();
+    grAttachment.write(grRecord, csvFileName, 'application/csv', csvData);
+
+    // Send the attached CSV to the mid server
+    sendAttachmentToMid(csvFileName, current.getTableName(), current.getUniqueValue(), mid_name, exportFolder);
 }
-
-// Include 2 header rows
-// Row 1 of header data
-var Headers1 = [
-    "Invoice",
-    "Invoice Number*",
-    "Supplier Name",
-    "Supplier Number",
-    "Invoice Date*",
-    "Submit For Approval?",
-    "Misc Amount",
-    "Line Level Taxation*",
-    "Supplier Note",
-    "Payment Terms",
-    "Chart of Accounts*",
-    "Currency",
-    "Image Scan Filename",
-    "Image Scan URL",
-    "Local Currency Net",
-    "Invoice Control Total",
-    "Remit To Code",
-    "Memo To Recipient"
-];
-
-// Row 2 of header data
-var Headers2 = [
-    "Invoice Line",
-    "Invoice Number*",
-    "Supplier Name",
-    "Supplier Number",
-    "Description*",
-    "Supplier Part Number",
-    "Price*",
-    "Bulk Price",
-    "Unit of Measure*",
-    "Category",
-    "Account Name",
-    "Account Code",
-    "Account Segment 1",
-    "Account Segment 2",
-    "Account Segment 3",
-    "Account Segment 12",
-    "",
-    ""
-];
-
-// 1 row of data is created with each forEach loop for 2 total rows of data per invoice
-Headers1.forEach(function(ele) {
-    headerData = headerData + '"' + ele + '",';
-});
-for (let i = 0; i < attachmentCount; i++) {
-    headerData = headerData + '"' + "Attachment " + (i + 1) + '",';
-}
-headerData = headerData + '"Is Credit Note",';
-headerData = headerData + '"Original Invoice Number",';
-headerData = headerData + '"Original Invoice Date",';
-headerData = headerData + "\r\n";
-
-Headers2.forEach(function(ele) {
-    headerData = headerData + '"' + ele + '",';
-});
-for (let i = 0; i < attachmentCount; i++) {
-    headerData = headerData + '"",';
-}
-headerData = headerData + '"",'; // Is Credit Note - Row 2 blank
-headerData = headerData + '"",'; // Original Invoice Number - Row 2 blank
-headerData = headerData + '"",'; // Original Invoice Date - Row 2 blank
-headerData = headerData + "\r\n";
-
-// Combine the header and invoice data together
-csvData = headerData + invoiceData;
-
-// Create and attach the file to this scheduled job
-var grRecord = new GlideRecord('sysauto_script');
-grRecord.get(current.getUniqueValue());
-var grAttachment = new GlideSysAttachment();
-grAttachment.write(grRecord, csvFileName, 'application/csv', csvData);
-
-// Send the attached CSV to the mid server
-sendAttachmentToMid(csvFileName, current.getTableName(), current.getUniqueValue(), mid_name, exportFolder);
 
 /* Function to export a specific attachment to the mid server */
 function sendAttachmentToMid(filename, tableName, recordSysID, midServerName, exportFolderName) {
